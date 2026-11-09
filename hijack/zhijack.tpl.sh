@@ -35,11 +35,15 @@ LOG_LIMIT=131072
 mkdir -p "$LOG_DIR"
 mv "$LOG" "$LOG.prev" 2>/dev/null
 : > "$LOG"
+# Each line used to cost four forks (wc, date, head + subshell), ~70 ms on
+# this CPU; ten lines before the menu added ~0.7 s of boot time. The size
+# limit is now kept with a byte counter in the shell itself.
+LOG_BYTES=0
 log_event() {
-    LOG_SIZE=$(wc -c < "$LOG" 2>/dev/null)
-    [ -n "$LOG_SIZE" ] && [ "$LOG_SIZE" -lt "$LOG_LIMIT" ] || return
-    LOG_REMAINING=$((LOG_LIMIT-LOG_SIZE))
-    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" "$*" | head -c "$LOG_REMAINING" >> "$LOG"
+    [ "$LOG_BYTES" -lt "$LOG_LIMIT" ] || return
+    LOG_LINE="$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null) $*"
+    LOG_BYTES=$((LOG_BYTES + ${#LOG_LINE} + 1))
+    printf '%s\n' "$LOG_LINE" >> "$LOG"
 }
 log_event "=== zhijack boot [@DEV_LABEL@] pid=$$ ==="
 sync
@@ -152,8 +156,7 @@ if [ -f "$DRV_FLAG" ] && [ -f "$DRV_SAFE" ]; then #@R36@
     log_event "driver: SAFE variant (previous boots hit SIGBUS)" #@R36@
 fi #@R36@
 
-log_event "processes at boot: $(ps 2>&1)"
-sync
+[ -f /mnt/sdcard/log.txt ] && { log_event "processes at boot: $(ps 2>&1)"; sync; }
 
 export LD_LIBRARY_PATH=/mnt/sdcard/cubegm/lib:/mnt/sdcard/cubegm/usr/lib:$LD_LIBRARY_PATH
 
@@ -171,8 +174,12 @@ for c in /sys/devices/system/cpu/cpu*/cpufreq; do
 done
 
 # Input: cubevol (reads gpio -> /tmp/joy_key shm) must be up; picoarch reads the shm.
-pidof cubevol >/dev/null 2>&1 || { [ -x /usr/bin/cubevol ] && /usr/bin/cubevol & }
-sleep 0.5
+# (the 0.5 s settle wait is only needed when cubevol was not running yet;
+# on stock boots inittab has already started it)
+if ! pidof cubevol >/dev/null 2>&1; then
+    [ -x /usr/bin/cubevol ] && /usr/bin/cubevol &
+    sleep 0.5
+fi
 
 # Optional: disable the power-button sleep (FrogUI Settings -> "Disable Sleep",
 # default off, applies after restart). Live-patch every cubevol instance in RAM
