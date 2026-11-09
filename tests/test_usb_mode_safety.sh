@@ -44,7 +44,7 @@ grep -q 'cubegm/tfusbd.on' hijack/zhijack.tpl.sh ||
     fail "zhijack template does not start tfusbd"
 grep -q 'tfusbd.pid' apps/usb_mode/usb_mtp.sh ||
     fail "usb_mtp.sh does not step aside for tfusbd"
-for b in tfrec tfshim_gb350.so tfshim.so; do
+for b in tfrec tfshim_gb350.so tfshim.so tfview; do
     grep -q "apps/usb_mode/$b " build_release.sh ||
         fail "release does not package $b"
     file "apps/usb_mode/$b" | grep -q 'ELF 32-bit LSB.*MIPS' ||

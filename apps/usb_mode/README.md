@@ -101,4 +101,26 @@ stream into an H.264/AAC MP4. Measured on Moonwalker (Mega Drive): 320x240 at
 30 fps, 3 of 398 frames lost, audio lossless, no stutter noticed. Sources and
 offline tests: `capture/` (`build.sh`). Details: docs/dev/mtp-background.md, section 12.
 
+### PC screen on the console, console as a gamepad (needs remote control)
+
+`pc/r36stream.py` (Windows) streams the PC desktop or one window to the
+console and turns the console into a virtual Xbox 360 controller (ViGEmBus +
+`pip install vgamepad`). On the console `tfview` (sources in `stream/`) runs as
+a FrogUI standalone app, so it is started from the menu like any other app.
+
+- Video: lossless RGB565 deltas (`capture/tfcodec.c`) while the picture is
+  mostly still, 320x240 JPEG (stb_image) while much of it moves. Frames are
+  pixel-doubled to 640x480 on the console, because a size change makes the
+  display driver reprogram its scaler and flash black.
+- Latency: the PC sends a frame only after `tfview` reports the previous one
+  shown, so nothing queues up. Send-to-shown is ~3-20 ms; capture adds up to
+  one frame.
+- Buttons: D-pad, A/B/X/Y, L1/R1 -> LB/RB, **L2/R2 (joy_key bits 8/9) -> LT/RT**,
+  FN (bit 16) -> L3, START/SELECT. SELECT+R1 cycles the pad mode (D-pad as left
+  stick, A/B/X/Y as right stick), with an on-screen banner. Hold SELECT+START
+  for 1.5 s to leave.
+- Measured on the GB350: its "analog" sticks are 8-way digital switches wired
+  in parallel to the D-pad (left) and A/B/X/Y (right). `cubevol` reads them
+  bit by bit from a shift register, and the SoC ADC shows no stick signal.
+
 Details and measurements: [docs/dev/mtp-background.md](../../docs/dev/mtp-background.md).

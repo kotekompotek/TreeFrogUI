@@ -14,6 +14,7 @@ USB_DAEMON="$REPO/apps/usb_mode/tfusbd"
 USB_DAEMON_CTL="$REPO/apps/usb_mode/tfusbd.sh"
 KEY_TOOL="$REPO/apps/usb_mode/tfkey"
 REC_TOOL="$REPO/apps/usb_mode/tfrec"
+VIEWER="$REPO/apps/usb_mode/tfview"
 REC_SHIM="$REPO/apps/usb_mode/tfshim_gb350.so"
 REC_SHIM_TF="$REPO/apps/usb_mode/tfshim.so"
 MODULE="$REPO/apps/usb_mode/modules/4.4.186-release/usb_f_mass_storage.ko"
@@ -36,6 +37,7 @@ validate_sources() {
     [ -x "$USB_DAEMON_CTL" ] || die "missing background USB service control script: $USB_DAEMON_CTL"
     [ -x "$KEY_TOOL" ] || die "missing button tool: $KEY_TOOL"
     [ -x "$REC_TOOL" ] || die "missing recorder: $REC_TOOL"
+    [ -x "$VIEWER" ] || die "missing stream viewer: $VIEWER"
     [ -f "$REC_SHIM" ] || die "missing capture layer: $REC_SHIM"
     [ -f "$REC_SHIM_TF" ] || die "missing capture layer: $REC_SHIM_TF"
     [ -f "$MODULE" ] || die "missing module: $MODULE"
@@ -134,6 +136,7 @@ install -m 0755 "$USB_DAEMON" "$MOUNT/cubegm/tfusbd"
 install -m 0755 "$USB_DAEMON_CTL" "$MOUNT/cubegm/tfusbd.sh"
 install -m 0755 "$KEY_TOOL" "$MOUNT/cubegm/tfkey"
 install -m 0755 "$REC_TOOL" "$MOUNT/cubegm/tfrec"
+install -m 0755 "$VIEWER" "$MOUNT/cubegm/tfview"
 install -m 0644 "$REC_SHIM" "$MOUNT/cubegm/tfshim_gb350.so"
 install -m 0644 "$REC_SHIM_TF" "$MOUNT/cubegm/tfshim.so"
 install -m 0644 "$MODULE" "$MOUNT/cubegm/modules/4.4.186-release/usb_f_mass_storage.ko"
@@ -159,6 +162,7 @@ verify_equal "$USB_DAEMON" "$MOUNT/cubegm/tfusbd" tfusbd
 verify_equal "$USB_DAEMON_CTL" "$MOUNT/cubegm/tfusbd.sh" tfusbd.sh
 verify_equal "$KEY_TOOL" "$MOUNT/cubegm/tfkey" tfkey
 verify_equal "$REC_TOOL" "$MOUNT/cubegm/tfrec" tfrec
+verify_equal "$VIEWER" "$MOUNT/cubegm/tfview" tfview
 verify_equal "$REC_SHIM" "$MOUNT/cubegm/tfshim_gb350.so" tfshim_gb350.so
 verify_equal "$REC_SHIM_TF" "$MOUNT/cubegm/tfshim.so" tfshim.so
 verify_equal "$MODULE" "$MOUNT/cubegm/modules/4.4.186-release/usb_f_mass_storage.ko" usb_f_mass_storage.ko

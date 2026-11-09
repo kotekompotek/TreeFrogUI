@@ -1,3 +1,39 @@
+# TreeFrogUI Plus (kotekompotek)
+
+This is a fork of [TreeFrogUI](https://github.com/tzubertowski/TreeFrogUI) by
+Tomasz Zubertowski and contributors. The `plus` branch is upstream `main` with
+the mods below merged in. Each mod was built and tested on a GB350 (HiChip
+HC16xx R36S clone, TreeFrogUI v1.8.0_u). Everything except the MTP fix is
+opt-in, through a flag file on the SD card.
+
+| Mod | What it does | Turn on |
+|---|---|---|
+| **MTP fix** (`tfmtp`) | USB (MTP) shows up in Explorer. The stock `mtp-server` indexes the whole card first, and Windows gives up after 30 s. | always (falls back to `mtp-server`) |
+| **Background MTP** (`tfusbd`) | MTP while the menu and games run. The OTG port switches between host (mouse, pad, flash drive) and PC by itself. Transfers run with `SCHED_IDLE`. | `cubegm/tfusbd.on` |
+| **RAM housekeeping** | frees ROMs picoarch leaves extracted in `/tmp` (RAM). Without it, the next game can be OOM-killed. | with `tfusbd` |
+| **Remote control** | shell as root, files, button presses (`tfkey`), screenshots, reboot, from the PC over MTP (`apps/usb_mode/pc/r36.py`) | `cubegm/tfmtp.remote` ⚠️ root for any connected PC |
+| **Gameplay recording** | video + sound of picoarch games to an MP4 on the PC (`pc/r36rec.py`, `tfshim` + `tfrec`) | `cubegm/tfshim.on` (GB350) |
+| **PC screen + gamepad** | PC desktop on the console, console as an Xbox 360 pad incl. LT/RT (`pc/r36stream.py`, `tfview`) | remote control |
+
+How it works and what was measured:
+[apps/usb_mode/README.md](apps/usb_mode/README.md) ·
+[docs/dev/mtp-background.md](docs/dev/mtp-background.md) ·
+installer and EN/RU write-ups: [kotekompotek/treefrogui-mtp-server](https://github.com/kotekompotek/treefrogui-mtp-server)
+
+**Install on an existing TreeFrogUI v1.8.0_u card (Windows):** use the
+installer package [treefrogui-mtp-server](https://github.com/kotekompotek/treefrogui-mtp-server/releases/latest).
+`install.bat` sets up the MTP fix and background MTP; `install_remote.bat` adds
+remote control and recording. For the PC screen stream, also copy
+`apps/usb_mode/tfview` to `cubegm/` on the card. A full release built from this
+branch (`build_release.sh`) contains all of it.
+
+The mods are offered upstream: [#104](https://github.com/tzubertowski/TreeFrogUI/pull/104),
+[#108](https://github.com/tzubertowski/TreeFrogUI/pull/108). New C/Python files
+of the mods are MIT; TreeFrogUI itself stays under its own license
+(CC BY-NC-SA 4.0, see LICENSE.md).
+
+---
+
 ![TreeFrogUI Logo](logo-readme.png)
 
 # TreeFrogUI - Retro Emulation Frontend
