@@ -9,8 +9,8 @@ opt-in, through a flag file on the SD card.
 | Mod | What it does | Turn on |
 |---|---|---|
 | **MTP fix** (`tfmtp`) | USB (MTP) shows up in Explorer. The stock `mtp-server` indexes the whole card first, and Windows gives up after 30 s. | always (falls back to `mtp-server`) |
-| **Background MTP** (`tfusbd`) | MTP while the menu and games run. The OTG port switches between host (mouse, pad, flash drive) and PC by itself. Transfers run with `SCHED_IDLE`. | `cubegm/tfusbd.on` |
-| **RAM housekeeping** | frees ROMs picoarch leaves extracted in `/tmp` (RAM). Without it, the next game can be OOM-killed. | with `tfusbd` |
+| **Background MTP** (`tfusbd`) | MTP while the menu and games run. The OTG port switches between host (mouse, pad, flash drive) and PC by itself. Transfers run at nice 19. | `cubegm/tfusbd.on` |
+| **RAM housekeeping** | frees ~5 MB of unswappable initramfs RAM at boot and ROMs picoarch leaves extracted in `/tmp`. Without it, the next game can be OOM-killed. | with `tfusbd` |
 | **Remote control** | shell as root, files, button presses (`tfkey`), screenshots, reboot, from the PC over MTP (`apps/usb_mode/pc/r36.py`) | `cubegm/tfmtp.remote` ⚠️ root for any connected PC |
 | **Gameplay recording** | video + sound of picoarch games to an MP4 on the PC (`pc/r36rec.py`, `tfshim` + `tfrec`) | `cubegm/tfshim.on` (GB350) |
 | **PC screen + gamepad** | PC desktop on the console, console as an Xbox 360 pad incl. LT/RT (`pc/r36stream.py`, `tfview`) | remote control |

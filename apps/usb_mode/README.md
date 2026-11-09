@@ -73,8 +73,8 @@ keep running, and the port still works as a USB host (mouse, pad, flash drive):
   (2 s) until something answers. A PC is detected from the MUSB FRAME (SOF)
   counter: on this board VBUS always reads valid (the console powers the port)
   and the UDC state stays `configured` after an unplug, so neither works.
-- `tfmtp` runs with `SCHED_IDLE`, so transfers only use CPU time a game does
-  not need (24 MB during a GBA game: 1.7 MB/s to the console, 7.6 MB/s to the
+- `tfmtp` runs at nice 19 (SCHED_IDLE starved it under 100 % game load and
+  Windows dropped the device), so a game keeps ~98 % of the CPU (24 MB during a GBA game: 1.7 MB/s to the console, 7.6 MB/s to the
   PC, no visible stutter).
 - A session started from the USB (MTP) menu item is ended the way the B button
   does it (exit flag + SIGTERM): SIGKILLing `usb_mode.sh` left the display
