@@ -1,5 +1,20 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## Разрешённый повтор v11 для human observation
+
+- User отходил и явно запросил повтор. Один unchanged repeat разрешён именно
+  для наблюдения пользователем, не новая гипотеза/сборка. Камеры запрещены.
+- payload/kernel_cold_ui_live_scanout_v11_repeat1 — точная копия verified v11,
+  hashes+existing cold/fallback PASS проверены; no rebuild, fresh run_id/trial path.
+- **Repeat complete / appearance accepted:** UI_LIVE_SCANOUT_v11_REPEAT1_RESULT.json.
+  User видел интерфейс с недавней игрой и явно подтвердил, что ДО automatic reboot.
+  Human eyewitness acceptance, no camera, не вывод из hashes. First+late digital
+  match0f4e3334 at10040ms; watchdog/native restore/6boot и3UI hashes PASS.
+- Теперь **appearance прежнего UI на diagnostic Linux7 принят этим срезом**.
+  Navigation/buttons/audio/actual game/full power-cycle остаются unverified.
+  Следующее physical input calibration/navigation, потом audio/game integration;
+  не повторять black-screen experiments без нового отдельного дефекта.
+
 ## Live checkpoint v11 2026-11-15 (новее v10)
 
 - Пользователь сам наблюдает экран; **камеры не использовать**. Human observation

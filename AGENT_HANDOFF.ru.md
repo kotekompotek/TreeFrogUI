@@ -1,5 +1,28 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Повтор v11 по явному запросу пользователя
+
+- Пользователь отходил во время первого опыта и попросил «Еще раз сделай».
+  Разрешён один unchanged repeat для собственного наблюдения экрана, без камеры.
+- Проверены hashes исходного cold image и всех source-profile artifacts, оба
+  existing cold/fallback reports PASS. Никаких rebuild/нового encrypted image.
+- Новый trial folder payload/kernel_cold_ui_live_scanout_v11_repeat1 содержит
+  точную копию verified cold candidate v11; session_tag image прежний, run_id
+  генерируется свежий. Старый trial/evidence не переписываются.
+- **Repeat завершён:** UI_LIVE_SCANOUT_v11_REPEAT1_RESULT.json,
+  run_idad2ed2b6d54646b9bb4ed82c8d9bd74e. First+late digital PASS/hash0f4e3334,
+  late10040ms/run8460, native restore/watchdog stock MTP/6boot и3UI hashes PASS,
+  host_cleanup_wrote_boot_file=false. No rebuild, no camera.
+- **UI appearance PASS по прямому наблюдению пользователя:** «интерфейс есть,
+  вижу недавнюю игру», затем явно подтвердил «до автоматического перезапуска».
+  Это реальный diagnostic Linux7 window, не stock после возврата. Evidence type:
+  user eyewitness, не camera/assistant visual inspection и не вывод из hashes.
+- Scope только appearance прежнего UI с recent-game content. Navigation/input,
+  audio и actual game execution НЕ проверены, power-cycle НЕ accepted.
+- **Следующее:** physical input calibration/navigation independent slice;
+  затем audio/game integration. Не продолжать black-screen diagnosis как будто
+  appearance ещё не доказан. Камеры по-прежнему запрещены.
+
 ## Live scanout v11 2026-11-15 (новее v10)
 
 - User «делай, я сам скажу что на экране». Камеры не разрешены/не используются;

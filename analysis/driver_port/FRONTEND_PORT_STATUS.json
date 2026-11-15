@@ -1,7 +1,10 @@
 {
   "scope": "New compatibility services for unchanged picoarch/TreeFrogUI; partial implementation, not full UI or game acceptance",
   "UI_appearance": {
-    "verified": false,
+    "verified": true,
+    "verification_scope": "User eyewitness observed existing interface with recent-game content before automatic restart during diagnostic Linux7 repeat; not navigation/audio/game execution",
+    "visual_evidence_type": "Direct user report with explicit temporal clarification; no camera",
+    "verified_result": "analysis/driver_port/UI_LIVE_SCANOUT_v11_REPEAT1_RESULT.json",
     "trial_v1": "analysis/boot_crypto/kernel_cold_ui_appearance_v1_trial.json",
     "result_v1": "analysis/driver_port/UI_APPEARANCE_v1_RESULT.json",
     "failure": "FrogUI sparse BSS ~79MB commit rejected by new-kernel no-swap policy; picoarch/backend/SDL/SysV started",
@@ -42,8 +45,10 @@
     "result_v11": "analysis/driver_port/UI_LIVE_SCANOUT_v11_RESULT.json",
     "v11_digital_persistence_verified": true,
     "v11_state": "First+late_live hash0f4e3334 matches mapped/uncached scanout at10031ms,run8460/frames1; descriptor unchanged,raster progresses. Stock/native restore/6boot and3UI hashes PASS. No camera; two checkpoints not continuous monitoring.",
-    "user_visual_observation": "PENDING",
-    "next_policy": "Await independent user screen report for v11. If black, inspect panel/backlight/layer state read-only. Do not repeat unchanged v11 or infer visual acceptance from hashes. No camera, forced redraw or fake framebuffer exports.",
+    "repeat1_trial": "analysis/boot_crypto/kernel_cold_ui_live_scanout_v11_repeat1_trial.json",
+    "user_visual_observation": "CONFIRMED: UI with recent game visible before automatic restart in repeat1; human eyewitness, no camera",
+    "repeat1_digital_persistence_verified": true,
+    "next_policy": "Appearance slice accepted. Next physical input calibration/navigation, then audio and actual game integration. Do not treat historical black-screen observation as current unproven appearance. Preserve no-camera policy and watchdog/SD protections.",
     "navigation_verified": false,
     "audio_verified": false
   },

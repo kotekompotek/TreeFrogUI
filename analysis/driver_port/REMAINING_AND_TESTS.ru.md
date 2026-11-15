@@ -7,6 +7,20 @@
 не запускать загрузочные опыты, камеру и микрофон до её подключения.
 Чекбоксы ниже — НЕ выполненные задачи, если явно не сказано обратное.
 
+## Актуальное уточнение: UI appearance принят
+
+- UI_LIVE_SCANOUT_v11_REPEAT1_RESULT.json: неизменённый picoarch/FrogUI на Linux7,
+  пользователь увидел интерфейс с недавней игрой и явно подтвердил, что это было
+  ДО автоматического перезапуска. Это human eyewitness appearance PASS, без камеры.
+- First+late scanout hashes совпали через10040ms; stock/native restore/6boot и3UI
+  hashes PASS. Bootstrap/runtime/backend launch приняты предыдущими trial slices.
+- Следующая отдельная задача: physical input calibration/navigation; потом
+  audio/frontend и actual game integration. Темы/языки/анимации/настройки/навигация,
+  игровой процесс, audible audio и full power-cycle всё ещё не приняты.
+- Этот раздел новее исторического чек-листа ниже; прежние unavailable-console,
+  UI-not-started и другие pending-утверждения сверять с текущими UI_PORT_PLAN и
+  FRONTEND_PORT_STATUS. Камеры остаются запрещены.
+
 ## Что уже подтверждено на консоли
 
 - Linux7 достигает PID1, работает с SD, загружает собственные модули.
