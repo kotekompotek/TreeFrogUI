@@ -1,9 +1,13 @@
 {
-  "scope": "Prepared raw physical button capture; no hardware acceptance yet",
+  "scope": "Completed raw18-button capture; human-labelled physical codes verified, navigation not yet tested",
   "source_profile": "payload/kernel_input_calibration_v3",
   "cold_candidate": "payload/kernel_cold_input_calibration_v3",
-  "hardware_started": false,
-  "hardware_verified": false,
+  "hardware_started": true,
+  "trial": "analysis/boot_crypto/kernel_cold_input_calibration_v3_trial.json",
+  "trial_state": "COMPLETE: raw18-button capture and automatic restore verified",
+  "hardware_verified": true,
+  "hardware_scope": "36raw events,18complete unique press/release pairs,no drops,user confirmed exact physical order",
+  "result": "analysis/driver_port/INPUT_PHYSICAL_v3_RESULT.json",
   "capture_seconds": 60,
   "watchdog_seconds": 90,
   "kernel_code_rebuilt": false,
@@ -16,10 +20,10 @@
   "offline_profile_hash_and_reversal_passed": true,
   "offline_cold_success_fault_and_native_fallback_passed": true,
   "watchdog_emulation": "Actual machine code checked against generator; on successful kernel handoff hardware counter reload, trace timeout and restore receipt all90seconds. Intermediate boot file copy remains30seconds, fallback error5seconds.",
-  "pytest_passed": 244,
+  "pytest_passed": 253,
   "pytest_skipped": 10,
   "failed_preparation": "First emulator run retained default30 while candidate was90, rejected exact byte match; fixed forwarding manifest timeout, did not weaken comparison. Rerun PASS.",
   "camera_used": false,
-  "legacy_mapping": "Unknown; existing map validator covers12 canonical buttons only. Extra buttons captured raw, no guessed consumer bits.",
-  "next": "Wait for user ready, then one new hardware trial. Verify complete fresh capture/releases/no dropped events and user-confirmed physical order before assigning labels."
+  "legacy_mapping": "Offline calibrated12-gameplay-button map generated at analysis/driver_port/physical_legacy_map_v3, not installed. Extra physical codes verified but consumer bits not guessed.",
+  "next": "Prepare protected real MIPS evdev->SysV->unchanged UI navigation trial using measured map; wait for user ready before next interactive boot. Volume/power action policy remains unverified."
 }

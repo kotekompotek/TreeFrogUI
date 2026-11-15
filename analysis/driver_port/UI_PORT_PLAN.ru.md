@@ -13,12 +13,20 @@
   проверяются эмуляцией; first byte-match failed из-за emulator default30, manifest
   propagation исправлен. Offline cold8/native fallback PASS (actual90s counter,
   trace/receipt checked),244pytestPASS/10SKIP. INPUT_CALIBRATION_v3_STATUS.json.
-  Hardware НЕ запущен, ждём human ready.
-- Перед boot дождаться tests PASS и human ready; KMS stripes start cue,
+  **Hardware v3 complete:** INPUT_PHYSICAL_v3_RESULT.json, raw18physical buttons PASS.
+- Пользователь получил порядок18кнопок; KMS stripes start cue,
   не менять настройки/не запускать игры. Камеры запрещены. Raw key mapping неизвестен,
   старые tests2evdev/0events/ERR2 не доказывают рабочие кнопки.
-- Legacy map tool12 canonical gameplay fields пока unchanged, дополнительные
-  L2/R2/FN/volume/power сначала только raw labels, без guessed legacy bits.
+- User подтвердил все18по порядку;36events/18unique press-release pairs/dropped0.
+  Native restore/watchdog90/stock MTP/6boot и3UIhashes PASS, no host cleanup writes.
+  Physical L1/R1 measured serial704/707; L2/R2 direct109/104 — старые DTS labels
+  не совпадали с физической маркировкой. Полная карта в INPUT_PHYSICAL_v3_RESULT.json.
+- analyze_physical_capture.py whole-sequence validation9tests, full253PASS/10SKIP.
+  Existing legacy calibrator создал canonical12 map offline (не installed), extras
+  без guessed bits. Volume/power raw keys accepted, actions НЕ tested.
+- **Следующее:** protected actual MIPS evdev->SysV->unchanged UI navigation trial
+  с measured12map. Перед interactive boot human ready; no camera. Extra L2/R2/FN
+  consumer ABI и безопасные volume/power handlers — отдельные задачи.
 
 ## Разрешённый повтор v11 для human observation
 

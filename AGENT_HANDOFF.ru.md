@@ -20,8 +20,24 @@
 - Emulation first FAILED current generator mismatch: emulator regenerated default30;
   fixed manifest forwarding without weakening byte comparison. Repeat emulation
   cold8+native fallback PASS; actual90s reload/trace/receipt checked. Full pytest
-  244PASS/10SKIP. INPUT_CALIBRATION_v3_STATUS.json. Hardware НЕ запускался;
-  дождаться пользовательского ready перед одним новым trial.
+  244PASS/10SKIP. INPUT_CALIBRATION_v3_STATUS.json.
+- **Hardware v3 COMPLETE/PASS raw physical:** INPUT_PHYSICAL_v3_RESULT.json,
+  run_id6f3726c43ac6499ab4ce67e4336dee7b. User «сделал», затем подтвердил все18
+  по порядку без пропусков/повторов.36events/18unique press-release pairs/dropped0.
+  analyze_physical_capture.py validates whole sequence; не размечает partial captures.
+- Actual watchdog90/receipt90, native restore/stock MTP/6boot и3UI hashes PASS,
+  host_cleanup_wrote_boot_file=false. Display scanout PASS, pre-input IRQ ERR0.
+  Power raw press/release recorded, но shutdown/volume actions не проверялись.
+- Измеренный physical map: UP712 RIGHT715 DOWN713 LEFT714 A709 B708 X705 Y706
+  START711 SELECT710 L1(serial)704 R1(serial)707 L2(direct)109 R2(direct)104
+  FN59 VOL+115 VOL-114 POWER116. Важно: старые DTS shoulder node names неверно
+  описывали physical labels: direct GPIO плечевые оказались L2/R2, НЕ L1/R1.
+- Offline canonical12 map создан existing calibrate_legacy_keys.py в
+  analysis/driver_port/physical_legacy_map_v3, НЕ installed. Extra legacy bits
+  не назначены; no fake navigation claim. Full pytest253PASS/10SKIP.
+- **Следующее:** actual MIPS evdev->SysV->unchanged UI protected navigation trial
+  с этой measured map. Human ready перед interactive boot; no camera.
+  L2/R2/FN consumer ABI отдельно подтвердить, volume/power handlers не выдумывать.
 - Headless input profile раньше давал2evdev/0events/IRQERR2: physical keys ещё
   НЕ accepted. KMS stripes будут visual start cue, не меню; никаких UI actions.
 - Legacy calibrate_legacy_keys.py пока валидирует12 canonical gameplay labels;
