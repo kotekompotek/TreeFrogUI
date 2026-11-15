@@ -1,5 +1,37 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Double-buffer + synchronous DRM flip готовы офлайн; hardware не запускался
+
+- **Доказана поддержка flip в драйвере** (статически по исходнику
+  payload/display_driver_source_v4 и deployed r36_hc16xx_drm.ko): DRIVER_ATOMIC,
+  drm_atomic_helper_page_flip/commit, drm_gem_fb_create_with_dirty,
+  drm_vblank_init(drm,1), drm_crtc_send_vblank_event по hc16xx_latched либо
+  после4vblank (flip_timeouts), ping-pong next_desc. Тест
+  scripts/peripheral_lab/test_drm_flip_support.py (skip без payload).
+- **Fix чёрных квадратов в video_drm_backend.c (offline):** два dumb-буфера,
+  рендер только в неактивный, показ через PAGE_FLIP + FLIP_COMPLETE wait с
+  токеном (устаревшие события отсеиваются, лимит8 чтений, таймаут250ms);
+  первый кадр и recovery — SETCRTC+WAIT_VBLANK; после неудачного flip
+  needs_modeset заставляет modeset до следующего рендера — активный буфер
+  не перезаписывается никогда. Экспорт ABI и формат лога submitted_frames
+  не менялись; video_scanout_trace.h не менялся (pixels=front).
+- **Верификация:** mock video_backend_test.c — два буфера, hash-guard активного
+  буфера на каждой активации (abort при live-записи), фейки poll/read с
+  очередью событий, флаги fail_flip_ioctl/fail_flip_wait, тест recovery и
+  drain. В QEMU build VM: REAL_BACKEND_MOCK_DRM=PASS, SHARED_LIB_CONTRACT=PASS
+  (5 символов для libretro_smoke), trace-сборка -Werror PASS; компиляция
+  gcc -D__user= -idirafter <kernel uapi> (сырой include/uapi без headers_install
+  даёт __user; это только флаг сборки теста, не правка исходников).
+  Полный pytest Windows:262passed/14skipped.
+- Результат: analysis/driver_port/DRM_FLIP_OFFLINE_v1_RESULT.json.
+- **Ограничения:** mipsel cross gcc в окружении нет (WSL недоступен) —
+  driver_r36_test_mockdrm_v1.so и MIPS video .so НЕ пересобраны, emulator
+  smoke с mock-drm-backend не запускался. Камера запрещена; hardware trial
+  НЕ запускался; квадраты НЕ объявлены исправленными.
+- **Следующее при явной готовности пользователя:** пересобрать MIPS
+  артефакты, подготовить candidate, hardware trial с наблюдением смены кадров
+  (без камеры, по слову пользователя).
+
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 
 - **Hardware COMPLETE:** UI_NAVIGATION_v1_RESULT.json/run_iddd25adf9edcc423985d20069ce852fad.

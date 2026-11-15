@@ -1,5 +1,34 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## DRM flip support verified + double-buffer backend fix (offline, без hardware)
+
+- Доказано статически по payload/display_driver_source_v4/r36_hc16xx_drm.c и
+  deployed r36_hc16xx_drm.ko: драйвер ПОДДЕРЖИВАЕТ двойную буферизацию и
+  синхронный page flip (DRIVER_ATOMIC, drm_atomic_helper_page_flip/commit,
+  drm_gem_fb_create_with_dirty, drm_vblank_init, drm_crtc_send_vblank_event по
+  hc16xx_latched либо после 4 vblank через flip_timeouts, ping-pong next_desc).
+  Ограничение было только в userspace backend. Тест:
+  scripts/peripheral_lab/test_drm_flip_support.py (skip без payload).
+- video_drm_backend.c переписан: два dumb-буфера; scaler всегда пишет
+  неактивный; показ через DRM_IOCTL_MODE_PAGE_FLIP + ожидание
+  DRM_EVENT_FLIP_COMPLETE с таймаутом и токеном (устаревшие события
+  отсеиваются). Первый кадр и recovery после неудачного flip — SETCRTC +
+  WAIT_VBLANK; после неудачного flip следующий кадр обязан сделать modeset
+  ДО рендера, поэтому активный буфер никогда не перезаписывается. Формат лога
+  submitted_frames и экспорт ABI не менялись; trace-заголовок не менялся
+  (pixels = front).
+- Верификация офлайн: mock video_backend_test.c хэширует активный
+  scanout-буфер на каждой активации и падает, если CPU его перезаписал;
+  покрыты отказ flip ioctl, таймаут flip-события и drain устаревшего
+  события. REAL_BACKEND_MOCK_DRM=PASS и SHARED_LIB_CONTRACT=PASS в QEMU build
+  VM (-Wall -Wextra -Werror, trace-сборка отдельно). Полный pytest Windows:
+  262 passed/14 skipped. Результат: analysis/driver_port/DRM_FLIP_OFFLINE_v1_RESULT.json.
+- Ограничения: mipsel cross gcc недоступен — driver_r36_test_mockdrm_v1.so и
+  MIPS .so backend НЕ пересобраны (старые артефакты не тестировать как новые).
+  Никакого hardware-опыта и камеры; квадраты НЕ объявлены исправленными.
+- Следующее при явной готовности пользователя: пересобрать MIPS-артефакты,
+  задеплоить candidate, hardware trial с наблюдением смены кадров.
+
 ## UI directional navigation v1 accepted; black-square defect open
 
 - UI_NAVIGATION_v1_RESULT.json: user подтверждает отличную работу направлений,
