@@ -1,0 +1,55 @@
+# Track project sources and documentation; keep device dumps and build assets local.
+/*
+!/.gitignore
+!/.gitattributes
+!/AGENTS.md
+!/AGENT_HANDOFF.ru.md
+!/scripts/
+!/analysis/
+
+/scripts/**
+!/scripts/**/
+!/scripts/**/*.py
+!/scripts/**/*.c
+!/scripts/**/*.h
+!/scripts/**/*.S
+!/scripts/**/*.s
+!/scripts/**/*.sh
+!/scripts/**/*.ps1
+!/scripts/**/*.bat
+!/scripts/**/*.dts
+!/scripts/**/*.dtsi
+!/scripts/**/*.ld
+!/scripts/**/*.lds
+!/scripts/**/*.md
+!/scripts/**/Makefile
+
+/analysis/**
+!/analysis/**/
+!/analysis/**/*.md
+# Current acceptance summaries are small and useful for resuming work.
+!/analysis/driver_port/*STATUS.json
+!/analysis/driver_port/*RESULT.json
+!/analysis/driver_port/*VERIFIED.json
+!/analysis/driver_port/console_acceptance_*.json
+
+# Upstream checkouts, test scratch space, caches and private runtime artifacts.
+/analysis/gb350-linux-reference/
+/analysis/kernel_build_vm_v1/
+/analysis/pytest-*/
+/analysis/test_tmp*/
+**/__pycache__/
+**/.pytest_cache/
+**/node_modules/
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/id_ed25519*
+**/id_rsa*
+
+# Unrelated local utilities and generated kernel module metadata.
+/scripts/litellm_usage_dashboard/
+**/*.mod.c
+# Small, reproducible forwarding evidence; binaries/runtime remain ignored.
+!/analysis/driver_port/UI_CORE_TRACE_FORWARDING_VERIFIED.json
