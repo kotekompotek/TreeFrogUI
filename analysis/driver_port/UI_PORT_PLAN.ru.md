@@ -1,5 +1,34 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## State-trace продолжение 2026-11-15 (новее v8)
+
+- Static analysis actual ELF: существует idle redraw-elision: при unchanged
+  signature/animation/transition/toast core делает usleep1000 и возвращается
+  без video callback. Нейтральный input + videos1 не доказывает поломку core.
+  Отдельно: missing fb errors НЕ доказанная причина чёрного экрана.
+- Полного source локально нет; nested FrogUI checkout пуст. Companion repos
+  не изменялись. REA Windows/MIPS unavailable; использованы installed ELF/Capstone.
+  Raw disassembly/address tables local-only, не в Git.
+- Новый opt-in read-only observer R36_UI_STATE_TRACE: generated exact-binary
+  profile12fields, /proc/self/mem O_RDONLY/pread, before/after real retro_run.
+  FNV64/size file match + loaded code identity samples; offsets bounds/type checked.
+  У actual FrogUI нет GNU build ID; fingerprint не cryptographic authentication.
+- Synthetic forwarding/state+wrong-profile rejection PASS:
+  UI_STATE_TRACE_OFFLINE_VERIFIED.json. Initial empty-fields bug caught in verify_v1,
+  corrected verify_v2 PASS. Focused6 tests PASS, final full225PASS/9SKIP.
+- v9 source/cold payload: ядро/PID1/DTB/DRM backend byte-identical v8,
+  только observer library rebuilt. Native bootm/gzip/cold8/fallback PASS.
+- **Hardware v9 завершён:** UI_STATE_TRACE_v9_RESULT.json.44state samples,
+  first1->0, last_sig2760972902 stable, idle_ticks increments/wraps,
+  transition3/carousel13/animation1; toast/screenshot/USB/migration0.
+  Runs/returns до12240, videos1/backend1. Реальная idle redraw-elision согласуется
+  со static branch; **single callback не является доказанным дефектом**.
+- Native restore/watchdog stock MTP/6boot and3protected UI hashes PASS,
+  host boot cleanup writes=false. Камеры не использовались; visual НЕ accepted.
+- **Следующий distinct experiment:** matching first-frame read-back из mapped DRM
+  buffer и active scanout descriptor/DMA. Не подменять physical visual proof
+  цифровыми hashes. Не менять flags/input/time и не force redraw ради счётчика.
+
 ## Актуальное продолжение 2026-11-15 (приоритет над историей ниже)
 
 - **Камеры запрещены пользователем.** Не открывать и не заявлять visual UI PASS.

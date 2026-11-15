@@ -9,8 +9,15 @@ typedef void (*video_cb)(const void *,unsigned int,unsigned int,size_t);
 #ifdef R36_TEST_CORE
 static video_cb video;
 static uint16_t pixels[640*480];
+#ifdef R36_TEST_STATE
+uint32_t test_state;
+unsigned char test_flag;
+#endif
 void retro_set_video_refresh(video_cb callback) { video=callback; }
 void retro_run(void) {
+#ifdef R36_TEST_STATE
+    test_state++; test_flag = 1;
+#endif
     pixels[0]++;
     if(video)video(pixels,640,480,1280);
 }

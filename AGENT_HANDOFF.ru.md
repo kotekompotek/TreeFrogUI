@@ -1,5 +1,41 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Продолжение state-trace 2026-11-15 (самый новый этап)
+
+- Git baseline f059b5b, ветка work/ui-core-trace-v8. Камеры по-прежнему запрещены.
+- Полный FrogUI source локально отсутствует (empty submodule); companion canonical
+  paths не менять. REA MIPS provider на Windows unavailable, target закрыт;
+  статический анализ сделан существующими pyelftools/Capstone.
+- Фактический ELF core MD5 совпал с console403944038926bf102ac498a7376fdafd.
+  Static: retro_run имеет idle redraw-elision по unchanged signature/animation/
+  toast/transition с usleep1000 и ранним возвратом без video callback.
+  Поэтому один callback на neutral input сам по себе НЕ доказывает core failure.
+  Адреса/дизассемблированный output только local, не коммитить.
+- Новый prepare_ui_state_profile.py: локальный generated profile12 symbol fields,
+  bounds/type checks, full-file FNV64/length + code samples. У actual ELF нет GNU
+  build ID; fingerprint не cryptographic authentication. Generated headers local-only.
+- ui_state_trace.h: O_RDONLY/proc/self/mem + pread, samples before/after real run,
+  no writes/input/timer overrides; reject mismatched binary before reading states.
+- UI_STATE_TRACE_OFFLINE_VERIFIED.json: synthetic counter0->1->2/flag0->1 PASS,
+  callbacks unchanged, wrong actual profile on synthetic core rejected/forwarding PASS.
+  Initial verify_v1 FAIL (empty fields bug); fix+verify_v2 PASS, raw retained.
+- New payload/kernel_ui_state_trace_v9: ядро/DTB/PID1/DRM backend byte-identical v8,
+  только observer changed to state-trace-v3. Cold wrapper v9 bootm/gzip/cold8/
+  native fallback PASS. Hardware один trial завершён (см. ниже).
+- Final pytest225PASS/9SKIP; focused6PASS; C -Wall/-Wextra syntax PASS.
+- **UI_STATE_TRACE_v9_RESULT.json**: run_id66eb7d9d6666488cb5971bf99714d4cf,
+  cold/native restore/watchdog stock return/6boot hashes PASS, host writes=false.
+  Protected picoarch/core/settings MD5 после совпали. Камер не было.
+  Profile bound,44samples: first1->0, last_sig2760972902 stable,
+  idle_ticks0->1 then6->7/14->15, transition3/carousel13/animation1,
+  toast/screenshot/USB/migration0. retro_run returns до12240, videos1/backend1.
+- **Вывод уточнён:** нейтральное меню после первого кадра реально использует idle
+  redraw-elision. Отсутствие следующих callbacks НЕ доказательство core failure.
+  Причина исторического чёрного экрана остаётся неизвестной; worker role неизвестна.
+- **Следующее:** read-back первого кадра в mapped DRM buffer и active scanout
+  descriptor/DMA, без камеры/изменения input. Visual acceptance NOT_TESTED.
+  Не форсировать redraw, не менять flags ради PASS, не fake fb/audio exports.
+
 ## Актуальное продолжение 2026-11-15: Git и core trace (приоритет над историей)
 
 - Пользователь: продолжать от ui_core_trace_test_v1, не пересобирать без нужды;

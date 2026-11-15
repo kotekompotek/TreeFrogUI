@@ -7,6 +7,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#ifdef R36_UI_STATE_TRACE
+#include "ui_state_trace.h"
+#endif
+
 /* Child-only observation of standard libretro calls, no binary patch, no fake
  * frames or return values. Never changes the input callback or core state.
  * dlsym resolution is versioned for measured MIPS glibc libdl, avoiding recursion.
@@ -44,7 +48,13 @@ static void observe_run(void)
     unsigned int count = ++runs;
     if (count <= 2 || count % 60 == 0)
         dprintf(2, "ui-core: run_enter=%u videos=%u\n", count, videos);
+#ifdef R36_UI_STATE_TRACE
+    state_sample(count, "enter");
+#endif
     core_run();
+#ifdef R36_UI_STATE_TRACE
+    state_sample(count, "leave");
+#endif
     if (count <= 2 || count % 60 == 0)
         dprintf(2, "ui-core: run_leave=%u videos=%u\n", count, videos);
 }
@@ -78,6 +88,9 @@ void *dlsym(void *handle, const char *name)
         traced_handle = handle; traced_handle_ready = 1;
         if (!strcmp(name, "retro_run")) {
             *(void **)(&core_run) = symbol;
+#ifdef R36_UI_STATE_TRACE
+            state_bind(symbol, &info);
+#endif
             return (void *)observe_run;
         }
         *(void **)(&core_set_video) = symbol;
