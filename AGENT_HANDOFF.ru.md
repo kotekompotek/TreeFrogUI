@@ -1,5 +1,32 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Live scanout v11 2026-11-15 (новее v10)
+
+- User «делай, я сам скажу что на экране». Камеры не разрешены/не используются;
+  human visual observation pending, не выдумывать и не выводить из цифровых hashes.
+- ui_live_checkpoint.h opt-in R36_UI_LIVE_CHECKPOINT: monotonic10s после первого
+  callback, poll every60 real retro_run; один synchronous call в уже загруженный
+  backend (RTLD_NOLOAD). Нет new thread/signal/input/extra frame/timer modification.
+- Backend opt-in r36_scanout_live_checkpoint проверяет submitted_frames1, lock,
+  late_live hashes/health/raster. v10 before_cleanup сохранён исторически отдельно.
+- v11 source kernel_ui_live_scanout_v11: kernel/DTB/PID1 от v10 без пересборки,
+  изменены только backend+observer. Native runtime load/fail-closed/forwarding PASS;
+  Linux scheduling mock -Wall/-Wextra/-Werror PASS (one shot,10s,NOLOAD).
+- Cold wrapper kernel_cold_ui_live_scanout_v11 bootm/gzip/cold8/native fallback PASS;
+  pytest237PASS/10SKIP. No-trace actual backend mock PASS. Host C test first
+  failed due cross-libc headers with -I; -idirafter corrected search, no source workaround.
+- Перед boot пользователь предупреждён смотреть от первого reboot до stock return,
+  кнопки не нажимать. **Один v11 trial завершён:** UI_LIVE_SCANOUT_v11_RESULT.json,
+  run_id7582265034904267972c2ceeace26843. First+late_live PASS: elapsed10031ms,
+  run8460/frames1, source/mapped/DMA hashes0f4e3334 совпали в обеих точках,
+  active/programmed02f90400 unchanged/pixel01500000/timing1/on1/timeouts0/raster1.
+  Это две цифровые выборки, не continuous monitoring и не physical panel proof.
+- Watchdog/native restore/stock MTP/6boot hashes и3UI hashes PASS, host writes=false.
+  User visual observation **PENDING**: спросили, что видно до stock return,
+  ответа ещё не было. Не выдумывать и не записывать visual PASS заранее.
+- **Следующее:** дождаться user report именно этого trial. Если экран чёрный,
+  read-only panel/backlight/layer state investigation; unchanged v11 не повторять.
+
 ## Scanout read-back 2026-11-15 (новее state-trace v9)
 
 - User «делай», без камер. Git начат чистым, current branch work/ui-core-trace-v8.

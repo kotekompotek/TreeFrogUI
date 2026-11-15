@@ -1,5 +1,29 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## Live checkpoint v11 2026-11-15 (новее v10)
+
+- Пользователь сам наблюдает экран; **камеры не использовать**. Human observation
+  пока PENDING, записывать отдельно от цифровой приёмки и только со слов пользователя.
+- R36_UI_LIVE_CHECKPOINT monotonic10s после первого callback, every60 real runs,
+  synchronous one-shot backend function через RTLD_NOLOAD. Без новых потоков,
+  signal handlers, input overrides или extra video frames.
+- Backend r36_scanout_live_checkpoint: late_live read-back под lock, только если
+  submitted_frames1. Parser late_live требует marker10..15s и first+late hashes/
+  health/raster. Исторический v10 before_cleanup partial не переписывать.
+- v11 только backend+observer rebuilt; kernel/PID1/DTB unchanged. Native Linux
+  scheduler mock и saved-console-runtime MIPS load/fail-closed/forwarding PASS.
+  UI_LIVE_SCANOUT_OFFLINE_VERIFIED.json; cold8/native fallback PASS,237pytestPASS/10SKIP.
+  No-trace actual backend mock PASS; только две diagnostic libraries изменены.
+- **Hardware v11 PASS digital:** UI_LIVE_SCANOUT_v11_RESULT.json. First+late_live
+  hashes source/mapped/uncachedDMA0f4e3334 match, late elapsed10031ms/run8460,
+  frames1, same descriptor02f90400/pixel01500000/RGB565640x480/timing1/on1/
+  timeouts0/raster progress1. Две выборки подтверждены, не continuous monitoring.
+- Stock watchdog/native restore/MTP/6boot и3UIhashes PASS, host boot writes=false.
+  User visual report PENDING: предупреждён перед boot, вопрос после опыта задан.
+  **Следующее:** дождаться human observation именно v11. Если чёрный экран,
+  inspect panel/backlight/layer state read-only; не повторять unchanged trial.
+  Камеры не открывать, physical appearance не считать принятым по hashes.
+
 ## Scanout read-back 2026-11-15 (новее v9)
 
 - Opt-in diagnostic backend R36_SCANOUT_TRACE: first/before_cleanup

@@ -182,6 +182,19 @@ finish:
     return result;
 }
 
+#ifdef R36_SCANOUT_TRACE
+void r36_scanout_live_checkpoint(void)
+{
+    pthread_mutex_lock(&lock);
+    fprintf(stderr, "r36-scanout: live_submitted_frames=%lu\n", submitted_frames);
+    if (submitted_frames == 1)
+        scanout_trace("late_live", scanout_expected_hash, scanout_expected_ready);
+    else
+        fputs("r36-scanout: phase=late_live observation_failed=1\n", stderr);
+    pthread_mutex_unlock(&lock);
+}
+#endif
+
 void video_driver_deinit(void)
 {
     pthread_mutex_lock(&lock);

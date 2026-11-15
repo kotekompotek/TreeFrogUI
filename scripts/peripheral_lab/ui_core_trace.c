@@ -24,6 +24,10 @@ static unsigned int runs, videos;
 static int traced_handle_ready;
 static void *traced_handle;
 
+#ifdef R36_UI_LIVE_CHECKPOINT
+#include "ui_live_checkpoint.h"
+#endif
+
 static void observe_video(const void *data, unsigned int w, unsigned int h, size_t pitch)
 {
     unsigned int count = ++videos;
@@ -42,6 +46,9 @@ static void observe_video(const void *data, unsigned int w, unsigned int h, size
         } else dprintf(2, "ui-core: video=%u geometry=%ux%u pitch=%lu inspected=0\n", count, w, h, (unsigned long)pitch);
     }
     if (frontend_video) frontend_video(data, w, h, pitch);
+#ifdef R36_UI_LIVE_CHECKPOINT
+    checkpoint_begin();
+#endif
 }
 static void observe_run(void)
 {
@@ -52,6 +59,9 @@ static void observe_run(void)
     state_sample(count, "enter");
 #endif
     core_run();
+#ifdef R36_UI_LIVE_CHECKPOINT
+    checkpoint_poll(count);
+#endif
 #ifdef R36_UI_STATE_TRACE
     state_sample(count, "leave");
 #endif
