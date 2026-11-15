@@ -53,3 +53,5 @@
 **/*.mod.c
 # Small, reproducible forwarding evidence; binaries/runtime remain ignored.
 !/analysis/driver_port/UI_CORE_TRACE_FORWARDING_VERIFIED.json
+# Raw mock execution log stays local; summary is tracked separately.
+/analysis/driver_port/scanout_mock_v10_result.json

@@ -1,5 +1,36 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Scanout read-back 2026-11-15 (новее state-trace v9)
+
+- User «делай», без камер. Git начат чистым, current branch work/ui-core-trace-v8.
+- Новый video_scanout_trace.h, opt-in R36_SCANOUT_TRACE в actual video backend:
+  first и before_cleanup hashes callback-source/scaled mapped/uncached DMA;
+  health validates active==programmed !=boot, RGB565640x480/pitch/timing/on/timeouts,
+  descriptor/pixel RAM bounds; brackets DMA read with health;12x5ms raster samples.
+  Только /dev/mem O_RDONLY/PROT_READ, нет added MMIO/state writes. Timing diagnostic.
+- Synthetic real C observer WSL PASS -Wall/-Wextra/-Werror: positive/padded pitch,
+  corrupted DMA -> mismatch, bad descriptor/missing memory -> fail. Initial mock
+  allocation rounding assertion исправлен в test; raw report scanout_mock_v10_result.json.
+- Saved console libc MIPS backend load/fail-closed PASS. Old harnessGLIBC2.34 failed;
+  новый load-console-v10c связан actual saved libc/libdl; системные libs не менялись.
+- payload/kernel_ui_scanout_trace_v10 отличается от v9 ТОЛЬКО backend library.
+  Kernel/PID1/DTB/state observer reused. Cold wrapper bootm/gzip/cold8/native fallback PASS.
+- Final full pytest235PASS/10SKIP (Linux mock отдельно PASS), focused final10/1skip.
+  Windows first run failed sys/mman.h native test; platform guard corrected,
+  parser guards не ослаблены. Parser различает first-frame и full two-phase scope.
+- **Hardware v10 завершён:** UI_SCANOUT_TRACE_v10_RESULT.json,
+  run_id30a437e152884944aa24796101185915. Source callback/backend input/mapped/DMA
+  hashes0f4e3334 совпали; nonzero585299. Active=programmed02f90400 !=boot02f92a80,
+  pixel01500000/RGB565640x480/pitch1280/on1/timing1/flip_timeouts0/raster progress1.
+  **first_frame_verified=true, digital_chain_verified=false**: before_cleanup
+  checkpoint в collected log отсутствует. Нельзя выдавать первый вывод за
+  end-of-window persistence. Child exit0, RSS8592kB/swap0.
+- Native restore/watchdog stock MTP/6boot hashes и3protected UI hashes PASS,
+  host_cleanup_wrote_boot_file=false. Камер не было, physical visual НЕ tested.
+- **Следующий distinct шаг:** явный bounded late checkpoint пока child alive
+  (не cleanup-dependent logging), затем read-only panel/backlight/layer state.
+  Не повторять unchanged v10 и не делать вывод о видимости панели по hashes.
+
 ## Продолжение state-trace 2026-11-15 (самый новый этап)
 
 - Git baseline f059b5b, ветка work/ui-core-trace-v8. Камеры по-прежнему запрещены.

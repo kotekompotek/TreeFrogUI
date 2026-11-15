@@ -1,5 +1,28 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## Scanout read-back 2026-11-15 (новее v9)
+
+- Opt-in diagnostic backend R36_SCANOUT_TRACE: first/before_cleanup
+  callback-source -> mapped scaled buffer -> uncached physical DMA hash;
+  health/descriptor/pixel bounds guards + raster progress, only read-only RAM access.
+  Production no-trace route прежний. Не physical visual acceptance.
+- UI_SCANOUT_TRACE_OFFLINE_VERIFIED.json: Linux actual C observation mock PASS
+  (match/corruption/bad health/missing devmem/padding). MIPS dlopen on saved console
+  runtime/fail-closed PASS; compatible harness explicitly linked old saved libc/libdl.
+- v10 only backend library changed from v9, kernel/PID1/DTB/core state observer reused.
+  Cold bootm/gzip/cold8/native fallback PASS. Final full pytest235PASS/10SKIP;
+  native Linux mock отдельно исполнен, Windows sys/mman test skipped by platform.
+- **Hardware v10 PARTIAL:** UI_SCANOUT_TRACE_v10_RESULT.json. Первый callback/
+  backend input/mapped/uncachedDMA hashes0f4e3334 совпали, active==programmed02f90400,
+  pixel01500000/RGB565640x480/pitch1280/on1/timing1/timeouts0/raster progress1.
+  Но before_cleanup в логе отсутствует: first_frame_verified=true,
+  digital_chain_verified=false (строгий two-phase). Persistence к концу16s не доказана.
+- Stock watchdog/native restore/MTP/6boot hashes и3protected UI hashes PASS,
+  host boot cleanup writes=false. Камеры не открывались, visual acceptance false.
+- **Следующий distinct experiment:** явный late checkpoint пока child alive,
+  не cleanup-dependent. После проверки persistence read-only panel/backlight/layer
+  state; не повторять unchanged v10, не утверждать panel visibility по hashes.
+
 ## State-trace продолжение 2026-11-15 (новее v8)
 
 - Static analysis actual ELF: существует idle redraw-elision: при unchanged

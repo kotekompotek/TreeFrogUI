@@ -28,6 +28,10 @@ static void *pixels = MAP_FAILED;
 static struct drm_mode_modeinfo native_mode;
 static struct drm_mode_crtc previous;
 
+#ifdef R36_SCANOUT_TRACE
+#include "video_scanout_trace.h"
+#endif
+
 static void cleanup(void)
 {
     if (device < 0) return;
@@ -145,6 +149,15 @@ int video_driver_disp_frame(void *source, int width, int height, int pitch_bytes
     pthread_mutex_lock(&lock);
     if (device < 0 || r36_scale565(pixels, stride, source, width, height, pitch_bytes)) goto finish;
     __sync_synchronize();
+#ifdef R36_SCANOUT_TRACE
+    if (!submitted_frames) {
+        scanout_expected_hash = scanout_hash(pixels, stride);
+        scanout_expected_ready = 1;
+        if (source && width == 640 && height == 480 && pitch_bytes == 1280)
+            fprintf(stderr, "r36-scanout: callback_source=%08x scaled_target=%08x identity_geometry=1\n",
+                    scanout_hash(source, pitch_bytes), scanout_expected_hash);
+    }
+#endif
     if (!active) {
         struct drm_mode_crtc crtc = {.set_connectors_ptr = (uintptr_t)&connector_id,
             .count_connectors = 1, .crtc_id = crtc_id, .fb_id = framebuffer, .mode_valid = 1,
@@ -158,6 +171,9 @@ int video_driver_disp_frame(void *source, int width, int height, int pitch_bytes
         if (ioctl(device, DRM_IOCTL_WAIT_VBLANK, &wait)) goto finish;
     }
     submitted_frames++;
+#ifdef R36_SCANOUT_TRACE
+    if (submitted_frames == 1) scanout_trace("first", scanout_expected_hash, scanout_expected_ready);
+#endif
     if (submitted_frames == 1 || submitted_frames % 60 == 0)
         fprintf(stderr, "r36-drm: submitted_frames=%lu source=%dx%d pitch=%d\n", submitted_frames, width, height, pitch_bytes);
     result = 0;
@@ -169,6 +185,9 @@ finish:
 void video_driver_deinit(void)
 {
     pthread_mutex_lock(&lock);
+#ifdef R36_SCANOUT_TRACE
+    if (submitted_frames == 1) scanout_trace("before_cleanup", scanout_expected_hash, scanout_expected_ready);
+#endif
     cleanup();
     pthread_mutex_unlock(&lock);
 }
