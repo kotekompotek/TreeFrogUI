@@ -1,8 +1,23 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
-## UI navigation v1 подготовлен (новее physical capture)
+## UI navigation v1 принят по направлениям; rendering defect открыт
 
-- User «делай». Hardware пока НЕ запускался; ждём human ready перед interactive test.
+- **Hardware COMPLETE:** UI_NAVIGATION_v1_RESULT.json/run_iddd25adf9edcc423985d20069ce852fad.
+  User «кнопки работают отлично», но при смене кадра внизу чёрные мелкие квадраты.
+  Directions-only navigation accepted, rendering quality НЕ accepted.
+  User уточнил: квадраты исчезают при остановке переключения, видны только при
+  смене кадра. Defect transient/update-only, idle clean; причина пока не доказана.
+- Real MIPS evdev->SysV ready PASS,70word changes/masks10,20,40,80 hex +release0,
+  graceful publisher stop final0; video callbacks33, second hash327d6833 differs.
+  UI child exit0, native/watchdog stock return/6boot и3UI hashes PASS, host writes=false.
+- Static risk confirmed, symptom cause NOT proven: backend writes active scanout
+  single buffer; scaler clears all visible rows black before copying source,
+  WAIT_VBLANK после write. Possible transient scanout exposure, not causal proof.
+  Следующее distinct investigation: source frame vs live clear/copy, inactive buffer/
+  supported vblank flip; не считать добавление WAIT до copy полноценным fix.
+- User спросил про stock config: actual frogui/keymap.txt уже используется для
+  consumer bits; calibration связала physical evdev codes. Extra stock L2/R2=-1.
+  Не повторять unchanged boot, камера запрещена.
 - Новый candidate kernel_ui_navigation_v1 + cold kernel_cold_ui_navigation_v1:
   existing input-enabled kernel_display_input_kms_vm_v1, only PID1 patch reversible.
   Kernel/DTB/module reused, static publisher rebuilt with DIAGNOSTIC+NAVIGATION_ONLY.
@@ -22,11 +37,11 @@
   uinput/evdev/SysV directional press/release/ready/graceful0+segment removal/
   confirm-bit rejection PASS: navigation_bridge_vm_v1/result.json.
   Initial dynamic host binary couldn't exec in musl VM, static host rerun PASS.
-  Actual MIPS publisher hardware acceptance pending. UI_NAVIGATION_v1_STATUS.json.
-- Следующее: спросить human ready; после UI появления RIGHT pause LEFT pause
-  DOWN pause UP, несколько одиночных без удержания/комбинаций. Никаких A/START/
-  power/volume. User reports selection response; verify SysV/video evidence,
-  stock restore6boot+3UI hashes. Камеры запрещены.
+  Actual MIPS publisher+directions UI chain accepted by current trial;
+  UI_NAVIGATION_v1_STATUS.json. Full button/game/audio/power behavior не принято.
+- Next action rendering artifact investigation: user update-only detail получен.
+  Проверить actual DRM inactive-buffer/vblank flip support, offscreen rendering
+  и lifecycle tests до нового hardware. Никаких automatic new boots.
 
 ## Подготовка physical input calibration:60s запись /90s watchdog
 

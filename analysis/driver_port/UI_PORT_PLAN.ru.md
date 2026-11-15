@@ -1,6 +1,22 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
-## UI directional navigation v1 ready (новее calibration)
+## UI directional navigation v1 accepted; black-square defect open
+
+- UI_NAVIGATION_v1_RESULT.json: user подтверждает отличную работу направлений,
+  но сообщает чёрные мелкие квадраты внизу при смене кадра. Rendering-quality FAIL/
+  unresolved, не скрывать за navigation PASS. User уточнил: idle clean, квадраты
+  исчезают без переключения, видны только при смене кадра. Transient defect.
+- Real MIPS publisher masks10/20/40/80 hex,70changes/releases0/graceful stop0;
+  video callbacks33/new frame hash, UI child0. Native restore/watchdog stock return/
+  6boot и3UIhashes PASS, host boot writes=false. Камеры не использовались.
+- Static: single active buffer очищается чёрным, затем копируется source до WAIT_VBLANK.
+  Это подтверждённый риск live-scanout race, НЕ доказанная причина именно квадратов.
+  Следующее source-vs-output evidence и inactive-buffer/vblank-flip implementation
+  при поддержке actual DRM, не blindly declare fixed by pre-copy wait.
+- Stock frogui/keymap.txt уже задаёт consumer bits. Physical calibration была
+  нужна для code->bit producer path; не меняем stock names/extra bits угадыванием.
+
+## Navigation v1 implementation history
 
 - Новый protected UI bootstrap: publisher exclusively owns SysV4B, starts before
   unchanged UI; ready marker/held-state query, PID1 watches and aborts on publisher
@@ -13,10 +29,9 @@
   check not navigation oracle once callbacks increase). Raw SysV logs collected.
 - Cold8/native fallback PASS;261pytestPASS/10SKIP; real native Linux VM uinput/
   evdev/SysV press/release/ready/zero-cleanup/reject-confirm-map PASS. Actual MIPS
-  publisher+UI chain still hardware pending. UI_NAVIGATION_v1_STATUS.json.
-- **Hardware not started.** Human ready required; ask RIGHT/LEFT/DOWN/UP only,
-  single presses, report whether selection moves. Verify fresh SysV/video log,
-  restore6boot+3UI hashes; no camera, no A/START/power/volume.
+  publisher+UI chain now hardware accepted for4directions only; UI_NAVIGATION_v1_STATUS.json.
+- Один hardware trial complete. Дальше artifact investigation, не новый такой же
+  interactive test. A/START/game launch, extras и sound остаются unverified.
 
 ## Physical input calibration preparation (новее UI acceptance)
 

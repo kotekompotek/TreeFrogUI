@@ -1,9 +1,15 @@
 {
-  "scope": "Prepared protected directional navigation test for unchanged picoarch/FrogUI; hardware not started",
+  "scope": "Four-direction navigation accepted; user-reported bottom black-square artifacts remain an open rendering defect",
   "source_profile": "payload/kernel_ui_navigation_v1",
   "cold_candidate": "payload/kernel_cold_ui_navigation_v1",
-  "hardware_started": false,
-  "navigation_verified": false,
+  "hardware_started": true,
+  "trial": "analysis/boot_crypto/kernel_cold_ui_navigation_v1_trial.json",
+  "trial_state": "COMPLETE: native MIPS publisher, directional UI response and automatic restore verified",
+  "navigation_verified": true,
+  "navigation_scope": "Four directions only; no confirmation/game launch or special-button integration",
+  "result": "analysis/driver_port/UI_NAVIGATION_v1_RESULT.json",
+  "render_quality_verified": false,
+  "open_visual_defect": "User reports small black squares at bottom when frame changes; cause not proven",
   "UI_window_seconds": 60,
   "watchdog_seconds": 90,
   "kernel_code_rebuilt": false,
@@ -28,5 +34,5 @@
   "camera_used": false,
   "no_input_injection": true,
   "reused_components": "Verified DRM backend and child-only state/live observer from UI v11; may emit late checkpoint observation_failed when more than one frame is submitted, which is expected during navigation and not a navigation acceptance oracle",
-  "next": "Wait for user ready, launch one trial. Ask only directional presses after UI appears and whether selection responds. Check actual SysV transitions and new video callbacks, stock restore/6boot and3UI hashes before accepting navigation. No confirm/special buttons."
+  "next": "Clarify artifact persistence at idle and investigate source content versus single-buffer scanout writes. Prepare a distinct safe video fix only after evidence; do not repeat unchanged trial. No camera or full rendering-quality acceptance."
 }
