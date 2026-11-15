@@ -91,7 +91,7 @@ def main():
         "r36-own-kernel-proof.txt " + SD + "r36-driver-test.txt " + SD + "r36-minimal-meminfo.txt " +
         SD + "r36-minimal-interrupts.txt " + SD + "r36-avp-probe.txt " + SD + "r36-display-probe.txt " +
         SD + "r36-usb-cdc-probe.txt " + SD + "r36-usb-interrupts.txt " + SD + "r36-frontend-probe.txt " +
-        SD + "r36-ui-probe.txt " + SD + "r36-ui-child.txt; sync")
+        SD + "r36-ui-probe.txt " + SD + "r36-ui-child.txt " + SD + "r36-ui-keys.txt; sync")
     staged = "r36-cold-" + manifest["session_tag"][2:] + ".staged"
     transport.put(image, "/cubegm/" + staged)
     expected_image_md5 = hashlib.md5(image.read_bytes()).hexdigest().encode()
@@ -152,7 +152,8 @@ def main():
                                ("r36-usb-interrupts.txt", ".usb-interrupts.txt"),
                                ("r36-frontend-probe.txt", ".frontend.txt"),
                                ("r36-ui-probe.txt", ".ui.txt"),
-                               ("r36-ui-child.txt", ".ui-child.txt")]:
+                               ("r36-ui-child.txt", ".ui-child.txt"),
+                               ("r36-ui-keys.txt", ".ui-keys.txt")]:
             code, data = transport.run("cat " + SD + remote, timeout=12)
             if code == 0:
                 receipt.with_suffix(suffix).write_bytes(data)

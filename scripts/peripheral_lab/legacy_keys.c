@@ -32,13 +32,22 @@ static int load_mapping(const char *path)
         if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "%u %u %c", &code, &bit, &extra) != 2 || code >= R36_KEY_LIMIT ||
             bit >= 32 || seen[code]) { fclose(file); return -1; }
+#ifdef R36_KEYS_NAVIGATION_ONLY
+        if (bit < 4 || bit > 7) { fclose(file); return -1; }
+        for (unsigned int c=0;c<R36_KEY_LIMIT;c++)
+            if (state.mapping[c] == (UINT32_C(1) << bit)) { fclose(file); return -1; }
+#endif
         seen[code] = 1;
         state.mapping[code] = UINT32_C(1) << bit;
         count++;
     }
     if (ferror(file)) { fclose(file); return -1; }
     fclose(file);
+#ifdef R36_KEYS_NAVIGATION_ONLY
+    return count == 4 ? 0 : -1;
+#else
     return count ? 0 : -1;
+#endif
 }
 
 int main(int argc, char **argv)
@@ -83,6 +92,10 @@ int main(int argc, char **argv)
     if (!stopped) *shared = r36_key_word(&state);
     __sync_synchronize();
     signal(SIGINT, stop); signal(SIGTERM, stop);
+#ifdef R36_KEYS_DIAGNOSTIC
+    dprintf(1, "keys_diagnostic_ready=%d\n", !stopped);
+    unsigned int diagnostic_records = 0;
+#endif
     while (!stopped) {
         int rc = poll(fds, count, 100);
         if (rc < 0 && errno == EINTR) continue;
@@ -109,11 +122,21 @@ int main(int argc, char **argv)
             }
             if (bytes == 0 || (bytes < 0 && errno != EAGAIN && errno != EINTR)) stopped = 1;
         }
+#ifdef R36_KEYS_DIAGNOSTIC
+        uint32_t before = *shared;
+#endif
         *shared = stopped ? 0 : r36_key_word(&state);
         __sync_synchronize();
+#ifdef R36_KEYS_DIAGNOSTIC
+        if (*shared != before && diagnostic_records++ < 128)
+            dprintf(1, "keys_word=%08x\n", (unsigned)*shared);
+#endif
     }
     *shared = 0;
     __sync_synchronize();
+#ifdef R36_KEYS_DIAGNOSTIC
+    dprintf(1, "keys_diagnostic_end requested_stop=%d final_word=%08x\n", (int)requested_stop, (unsigned)*shared);
+#endif
     shmdt((const void *)shared);
     shmctl(id, IPC_RMID, NULL);
     result = requested_stop ? 0 : 1;

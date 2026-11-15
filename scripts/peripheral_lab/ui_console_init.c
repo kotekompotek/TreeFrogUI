@@ -19,6 +19,15 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "../kernel_lab/user_trace.h"
+#ifdef R36_UI_NAVIGATION
+#include "ui_navigation_bridge.h"
+#endif
+#ifndef R36_UI_WINDOW_TICKS
+#define R36_UI_WINDOW_TICKS 160
+#endif
+#if R36_UI_WINDOW_TICKS < 10 || R36_UI_WINDOW_TICKS > 600
+#error "UI lifetime outside diagnostic bounds"
+#endif
 
 /* First unchanged UI appearance test: no write access to SD, neutral input,
  * genuine launcher audio-off setting in RAM, no stock init or fake audio API.
@@ -100,8 +109,12 @@ int main(void)
     if(ram_settings()){perror("ui_ram_settings");goto finish_log;}
     fd=open("/tmp/joy_key",O_CREAT|O_EXCL|O_WRONLY,0600);if(fd<0)goto finish_log;close(fd);
     key=ftok("/tmp/joy_key",'a');if(key==(key_t)-1)goto finish_log;
+#ifdef R36_UI_NAVIGATION
+    if(navigation_start(key))goto finish_log;
+#else
     ipc=shmget(key,4,IPC_CREAT|IPC_EXCL|0600);if(ipc<0)goto finish_log;
     keys=shmat(ipc,NULL,0);if(keys==(void *)-1)goto finish_log;*keys=0;
+#endif
     fd=open("/sd/cubegm/r36_hc16xx_drm.ko",O_RDONLY|O_CLOEXEC);if(fd<0)goto finish_log;
     module=syscall(SYS_finit_module,fd,"",0);close(fd);printf("ui_module_load_rc=%d\n",module);if(module)goto finish_log;
     childlog=open("/tmp/ui-child.txt",O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0600);if(childlog<0)goto finish_log;
@@ -139,7 +152,10 @@ int main(void)
     close(childlog);childlog=-1;
     /* Establish the group from both sides before the child can create helpers. */
     if(setpgid(child,child)&&errno!=EACCES&&errno!=ESRCH){kill(child,SIGKILL);do{got=waitpid(child,&status,0);}while(got<0&&errno==EINTR);if(got!=child)goto wait_reset;goto finish_log;}
-    for(unsigned int tick=0;tick<160;tick++){
+    for(unsigned int tick=0;tick<R36_UI_WINDOW_TICKS;tick++){
+#ifdef R36_UI_NAVIGATION
+        if(!navigation_alive()){puts("ui_navigation_bridge_lost=1");break;}
+#endif
         got=waitpid(child,&status,WNOHANG);if(got==child){done=1;break;}if(got<0&&errno!=EINTR)break;
         if(tick==40||tick==80||tick==120){printf("ui_sample_tick=%u\n",tick);sample_process(child);}
         usleep(100000);
@@ -158,6 +174,9 @@ int main(void)
     for(;;){int helper_status;pid_t helper=waitpid(-child,&helper_status,0);if(helper>0)continue;if(helper<0&&errno==EINTR)continue;if(helper<0&&errno==ECHILD)break;goto wait_reset;}
     printf("ui_child_exit=%d signalled=%d\n",WIFEXITED(status)?WEXITSTATUS(status):-1,!WIFEXITED(status));
 finish_log:
+#ifdef R36_UI_NAVIGATION
+    if(navigation_stop())goto wait_reset;
+#endif
     if(childlog>=0)close(childlog);
     if(keys!=(void *)-1)shmdt((const void *)keys);
     if(ipc>=0)shmctl(ipc,IPC_RMID,NULL);
@@ -170,6 +189,9 @@ finish_log:
         fd=open("/sd/cubegm/r36-own-kernel-proof.txt",O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC,0644);
         if(fd>=0){dprintf(fd,"R36 OWN KERNEL USERSPACE REACHED\nrun_id=%s\nsysname=Linux\nrelease=%s\nversion=%s\nmachine=%s\npid=1\n",id,u.release,u.version,u.machine);fsync(fd);close(fd);}
         copy_log("/tmp/ui-report.txt","/sd/cubegm/r36-ui-probe.txt");copy_log("/tmp/ui-child.txt","/sd/cubegm/r36-ui-child.txt");
+#ifdef R36_UI_NAVIGATION
+        copy_log("/tmp/ui-keys.txt","/sd/cubegm/r36-ui-keys.txt");
+#endif
     }
 finish_sd:
     sync();if(umount("/sd")){mount(NULL,"/sd","vfat",MS_REMOUNT|MS_RDONLY,NULL);sync();}

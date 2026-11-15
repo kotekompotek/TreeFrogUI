@@ -1,5 +1,33 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## UI navigation v1 подготовлен (новее physical capture)
+
+- User «делай». Hardware пока НЕ запускался; ждём human ready перед interactive test.
+- Новый candidate kernel_ui_navigation_v1 + cold kernel_cold_ui_navigation_v1:
+  existing input-enabled kernel_display_input_kms_vm_v1, only PID1 patch reversible.
+  Kernel/DTB/module reused, static publisher rebuilt with DIAGNOSTIC+NAVIGATION_ONLY.
+- Только4 directions measured codes712/715/713/714 ->bits4/5/6/7. Actual console
+  frogui/keymap.txt read-only подтвердил эти назначения; L2/R2 там -1.
+  Publisher compile-time rejects other/duplicate bits or !=4 mappings. A/B/START/
+  FN/volume/power не forwarded: никаких game launch/settings-confirm actions.
+- ui_navigation_bridge.h supervises separate publisher group, ready marker после
+  own SysV creation/held-state restore; UI starts only ready. Parent aborts UI if
+  bridge exits, stops/reaps publisher before report-only SD RW. Child UI unchanged,
+  settings RAM bind/SDRO, neutral mode default preserved.60s UI/watchdog90.
+- r36-ui-keys.txt RAM log capped128 changes, collected unique .ui-keys.txt,
+  stale file cleared. Verified DRM backend+state observer v11 reused; optional
+  live scanout first-frame-only check может reject >1frames при навигации — это
+  не acceptance oracle для navigation и не доказательство backend failure.
+- Cold8/native fallback PASS;261pytestPASS/10SKIP. Native Linux VM actual
+  uinput/evdev/SysV directional press/release/ready/graceful0+segment removal/
+  confirm-bit rejection PASS: navigation_bridge_vm_v1/result.json.
+  Initial dynamic host binary couldn't exec in musl VM, static host rerun PASS.
+  Actual MIPS publisher hardware acceptance pending. UI_NAVIGATION_v1_STATUS.json.
+- Следующее: спросить human ready; после UI появления RIGHT pause LEFT pause
+  DOWN pause UP, несколько одиночных без удержания/комбинаций. Никаких A/START/
+  power/volume. User reports selection response; verify SysV/video evidence,
+  stock restore6boot+3UI hashes. Камеры запрещены.
+
 ## Подготовка physical input calibration:60s запись /90s watchdog
 
 - User готов к кнопкам, уточнил L2/R2, volume+/-,FN; попросил больше времени,

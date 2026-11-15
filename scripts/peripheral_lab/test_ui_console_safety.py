@@ -38,7 +38,9 @@ def test_sparse_BSS_policy_is_RAM_only_bounded_not_SD_swap():
 
 def test_observation_has_bounded_window_and_thread_samples():
     text=(ROOT/'scripts/peripheral_lab/ui_console_init.c').read_text()
-    assert 'tick<160' in text and 'tick==40||tick==80||tick==120' in text
+    assert '#define R36_UI_WINDOW_TICKS 160' in text
+    assert 'tick<R36_UI_WINDOW_TICKS' in text and 'tick==40||tick==80||tick==120' in text
+    assert 'R36_UI_WINDOW_TICKS > 600' in text
     assert '/task/%.32s/wchan' in text
     assert 'usleep(100000)' in text
     assert 'r36-wdt' not in text

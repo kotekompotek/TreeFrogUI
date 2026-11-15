@@ -1,5 +1,23 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## UI directional navigation v1 ready (новее calibration)
+
+- Новый protected UI bootstrap: publisher exclusively owns SysV4B, starts before
+  unchanged UI; ready marker/held-state query, PID1 watches and aborts on publisher
+  loss, stop/reap before report-only RW. SDRO/settingsRAM/audiooff preserved.
+- Compile-time directions-only publisher validates exactly4unique bits4..7;
+  measured map712/715/713/714. Actual stock frogui/keymap.txt matches. A/B/START и
+  special buttons unmapped; no game launch by confirmation key in this slice.
+- Existing input-enabled kernel/DTB/DRM module reused; only PID1/publisher rebuilt.
+ 60s UI,90s watchdog. Verified v11 backend+observer reused (single-frame live
+  check not navigation oracle once callbacks increase). Raw SysV logs collected.
+- Cold8/native fallback PASS;261pytestPASS/10SKIP; real native Linux VM uinput/
+  evdev/SysV press/release/ready/zero-cleanup/reject-confirm-map PASS. Actual MIPS
+  publisher+UI chain still hardware pending. UI_NAVIGATION_v1_STATUS.json.
+- **Hardware not started.** Human ready required; ask RIGHT/LEFT/DOWN/UP only,
+  single presses, report whether selection moves. Verify fresh SysV/video log,
+  restore6boot+3UI hashes; no camera, no A/START/power/volume.
+
 ## Physical input calibration preparation (новее UI acceptance)
 
 - User добавил L2/R2, FN,volume+/-, POWER последней и попросил больше времени.
