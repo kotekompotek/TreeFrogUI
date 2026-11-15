@@ -115,9 +115,9 @@ def arm_watchdog(a, seconds):
     a.emit(store(9, 4, 8), 0x0000000F)
 
 
-def refresh_watchdog(a):
+def refresh_watchdog(a, seconds=30):
     a.constant(8, 0xB8818500)
-    a.constant(9, -187500 * 30)
+    a.constant(9, -187500 * seconds)
     a.emit(store(9, 0, 8), 0x0000000F)
 
 
@@ -275,7 +275,9 @@ def emit_read_exact_crc(a, spec):
 
 def make_probe(base, original_entry, tag, content, loader, *, force_watchdog=False, write_probe=False,
                copy_spec=None, fallback_spec=None, force_fallback=False, kernel_handoff=None,
-               symbols_out=None):
+               symbols_out=None, watchdog_seconds=30):
+    if type(watchdog_seconds) is not int or not 30 <= watchdog_seconds <= 120:
+        raise ValueError('diagnostic watchdog must be30..120seconds')
     assert len(content) == 64
     if kernel_handoff:
         assert copy_spec and copy_spec["restore_stock"] and fallback_spec
@@ -297,7 +299,7 @@ def make_probe(base, original_entry, tag, content, loader, *, force_watchdog=Fal
 
     a.label("fresh")
     metadata = [0x5233364C, 0, 3520, 2, 194, original_entry, 0, base,
-                187500, 30, tag, 0, 0, 0, 0, 0]
+                187500, watchdog_seconds, tag, 0, 0, 0, 0, 0]
     for index, value in enumerate(metadata):
         a.constant(8, value)
         a.emit(store(8, index * 4, 16))
@@ -482,14 +484,14 @@ def make_probe(base, original_entry, tag, content, loader, *, force_watchdog=Fal
             # same non-allocatable partial RAM page, below the AVP boundary.
             a.constant(8, RESTORE_RECEIPT)
             values = [0, 1, tag, 1, copy_spec["bytes"], 0, 0, 6,
-                      original_entry, kernel_handoff["dtb"], 30, 0, 0, 0, 0, 0]
+                      original_entry, kernel_handoff["dtb"], watchdog_seconds, 0, 0, 0, 0, 0]
             for index, value in enumerate(values):
                 a.constant(9, value)
                 a.emit(store(9, 4 * index, 8))
             a.emit(lw(9, 416, 16), store(9, 20, 8), lw(9, 420, 16), store(9, 24, 8))
             a.constant(9, RESTORE_MAGIC)
             a.emit(store(9, 0, 8), 0x0000000F)
-            refresh_watchdog(a)
+            refresh_watchdog(a, watchdog_seconds)
         elif force_fallback:
             a.jump("fallback_start")
     for index, reg in enumerate(saved):

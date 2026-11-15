@@ -45,7 +45,8 @@ def execute(folder, case, full_copy=False, native_decrypt=False):
     if copy_spec:
         probe = make_probe(int(manifest["probe_entry"], 0), int(manifest["original_entry"], 0),
                            int(manifest["session_tag"], 0), content, unpack_loader(source), copy_spec=copy_spec,
-                           fallback_spec=fallback_spec, kernel_handoff=handoff)
+                           fallback_spec=fallback_spec, kernel_handoff=handoff,
+                           watchdog_seconds=manifest.get('watchdog_seconds', 30))
         probe_offset = int(manifest["probe_entry"], 0) & 0x1FFFFFFF
         if full_copy or handoff:
             assert bytes(cpu.mem_read(probe_offset, len(probe))) == probe, "candidate code differs from current generator"
@@ -234,6 +235,11 @@ def execute(folder, case, full_copy=False, native_decrypt=False):
         assert reached == ["kernel_entry", "start_kernel"] and case == "success"
         receipt = struct.unpack("<16I", cpu.mem_read(RESTORE_RECEIPT & 0x1FFFFFFF, 64))
         assert receipt[:8] == (RESTORE_MAGIC, 1, tag, 1, len(source_data), zlib.crc32(source_data), zlib.crc32(source_data), 6)
+        timeout = manifest.get('watchdog_seconds', 30)
+        assert receipt[10] == timeout
+        assert get(TRACE + 36) == timeout
+        assert get(0xB8818500) == (-187500 * timeout) & 0xFFFFFFFF
+        assert get(0xB8818504) == 0x26
         assert not bootm_observed
         return {"case": case, "reached": reached, "stock_Linux_executed": False,
                 "pre_kernel_restore_receipt_verified": True, "passed": True}

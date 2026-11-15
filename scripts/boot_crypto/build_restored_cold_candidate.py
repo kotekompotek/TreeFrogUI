@@ -22,6 +22,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--profile", type=Path, default=ROOT / "payload/kernel_ready/boot")
+    parser.add_argument('--watchdog-seconds', type=int, default=30, choices=range(30, 121))
     args = parser.parse_args()
     if args.out.exists() or not args.out.parent.is_dir():
         parser.error("output must be new, with an existing parent")
@@ -57,7 +58,8 @@ def main():
     handoff = {"dtb": dtb_address, "kernel_entry": entry}
     symbols = {}
     code = make_probe(SHIM, entry, tag, content, loader, copy_spec=copy_spec,
-                      fallback_spec=fallback, kernel_handoff=handoff, symbols_out=symbols)
+                      fallback_spec=fallback, kernel_handoff=handoff, symbols_out=symbols,
+                      watchdog_seconds=args.watchdog_seconds)
     assert SHIM + len(code) < load
     assert dtb_address + len(dtb) < FAIL_ENTRY < 0x81000000
     payload = bytes(SHIM - 0x80000000) + code
@@ -74,7 +76,8 @@ def main():
     assert gzip.decompress(plain[64:]) == payload
     native = validate(loader, plain, inflate=True)
     assert native["return_code"] == 0 and int(native["entry"], 0) == SHIM
-    record = {"deployed": False, "hardware_verified": False, "kernel": "custom Linux " + kernel_manifest["release"],
+    record = {"watchdog_seconds": args.watchdog_seconds,
+              "deployed": False, "hardware_verified": False, "kernel": "custom Linux " + kernel_manifest["release"],
               "custom_kernel": True, "filesystem_probe": True, "filesystem_write_probe": False,
               "forced_watchdog_test": False, "copy_spec": copy_spec, "stock_fallback": fallback,
               "kernel_handoff": handoff, "original_entry": hex(entry), "probe_entry": hex(SHIM),

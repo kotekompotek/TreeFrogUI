@@ -1,5 +1,33 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Подготовка physical input calibration:60s запись /90s watchdog
+
+- User готов к кнопкам, уточнил L2/R2, volume+/-,FN; попросил больше времени,
+  power поставить последней. Всего18 физических labels с power. Камеры запрещены.
+- Пользователю сказано: НЕ начинать пока; перед аппаратным запуском подтвердить
+  готовность. Порядок UP,RIGHT,DOWN,LEFT,A,B,X,Y,START,SELECT,L1,R1,L2,R2,FN,VOL+,VOL-,POWER.
+  Каждую short press/release, POWER только кратко, не держать (hardware cutoff возможен).
+- Новый input_probe.h configurable R36_INPUT_CAPTURE_MS bounded1..60s, default12s
+  unchanged; SYN_DROPPED/event bound прежние. Новый static PID1 v3 capture60s.
+- prepare_input_calibration.py patch-only from verified kernel_display_input_kms_vm_v1:
+  kernel code unchanged; adds только polled GPIO12/13/14 KEY_VOLUME-/+/POWER,
+  existing FN2/shoulders7,11/serializer8,9 preserved. DT exact-delta validator.
+  No output GPIO/power/volume action handlers. Existing stock pin docs PORT_MATRIX.
+- payload/kernel_input_calibration_v3 source + kernel_cold_input_calibration_v3
+  wrapper подготовлены, watchdog90 explicit. Default other candidates30 unchanged.
+  Final refresh before kernel handoff90, trace/restore receipt90; intermediate file
+  copy still30 (short boot-critical phase), fallback failure5 unchanged.
+- Emulation first FAILED current generator mismatch: emulator regenerated default30;
+  fixed manifest forwarding without weakening byte comparison. Repeat emulation
+  cold8+native fallback PASS; actual90s reload/trace/receipt checked. Full pytest
+  244PASS/10SKIP. INPUT_CALIBRATION_v3_STATUS.json. Hardware НЕ запускался;
+  дождаться пользовательского ready перед одним новым trial.
+- Headless input profile раньше давал2evdev/0events/IRQERR2: physical keys ещё
+  НЕ accepted. KMS stripes будут visual start cue, не меню; никаких UI actions.
+- Legacy calibrate_legacy_keys.py пока валидирует12 canonical gameplay labels;
+  не назначать L2/R2/FN/volume/power биты наугад. Сначала raw capture18 presses,
+  human confirms order/repeats, затем explicit physical mapping/consumer ABI.
+
 ## Повтор v11 по явному запросу пользователя
 
 - Пользователь отходил во время первого опыта и попросил «Еще раз сделай».

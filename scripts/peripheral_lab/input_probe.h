@@ -6,6 +6,13 @@
 #include <poll.h>
 #include <time.h>
 
+#ifndef R36_INPUT_CAPTURE_MS
+#define R36_INPUT_CAPTURE_MS 12000
+#endif
+#if R36_INPUT_CAPTURE_MS < 1000 || R36_INPUT_CAPTURE_MS > 60000
+#error "Input capture must fit the diagnostic watchdog window"
+#endif
+
 static long input_time_ms(void)
 {
     struct timespec t;
@@ -43,7 +50,8 @@ static int input_probe(void)
     closedir(dir);
     printf("input_devices=%d serial_present=%d direct_present=%d\n", count, have_serial, have_direct);
     if (!have_serial || !have_direct) goto finish;
-    end = input_time_ms() + 12000;
+    printf("input_capture_ms=%d\n", R36_INPUT_CAPTURE_MS);
+    end = input_time_ms() + R36_INPUT_CAPTURE_MS;
     while (input_time_ms() < end) {
         int i, rc = poll(fds, count, 100);
         if (rc < 0 && errno == EINTR) continue;

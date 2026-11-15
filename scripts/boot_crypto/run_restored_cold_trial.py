@@ -34,6 +34,8 @@ def main():
     args = parser.parse_args()
     folder = args.folder
     manifest = json.loads((folder / "manifest.json").read_text())
+    watchdog_seconds = manifest.get('watchdog_seconds', 30)
+    assert type(watchdog_seconds) is int and 30 <= watchdog_seconds <= 120
     assert manifest["custom_kernel"] and manifest["copy_spec"]["restore_stock"]
     for name in ("cold_restore_emulation.json", "cold_restore_native_fallback.json"):
         assert json.loads((folder / name).read_text())["passed"]
@@ -107,7 +109,7 @@ def main():
         record.update(boot_requests=1, state="hardware watchdog reset requested; no RAM handoff")
         save()
         run(SD + "r36-wdt-diag --arm 187500 5", timeout=12)
-        time.sleep(35)
+        time.sleep(watchdog_seconds + 5)
         deadline = time.monotonic() + 90
         while True:
             try:

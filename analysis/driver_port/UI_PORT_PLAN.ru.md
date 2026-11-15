@@ -1,5 +1,25 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## Physical input calibration preparation (новее UI acceptance)
+
+- User добавил L2/R2, FN,volume+/-, POWER последней и попросил больше времени.
+  План:60s capture/90s watchdog, eighteen physical press/release labels.
+- Raw order UP RIGHT DOWN LEFT A B X Y START SELECT L1 R1 L2 R2 FN VOL+ VOL- POWER.
+  POWER short tap only; hardware long-hold cutoff не отменяется диагностикой.
+- Новый patch-only PID1/candidate kernel_input_calibration_v3 от existing input
+  kernel: adds GPIO12/13/14 polled inputs only, no action daemon/output GPIO.
+  Kernel code unchanged. prepare_input_calibration.py exact DT delta validated.
+- Cold wrapper explicit90s watchdog; default30 прежний. Trace/receipt actual reload
+  проверяются эмуляцией; first byte-match failed из-за emulator default30, manifest
+  propagation исправлен. Offline cold8/native fallback PASS (actual90s counter,
+  trace/receipt checked),244pytestPASS/10SKIP. INPUT_CALIBRATION_v3_STATUS.json.
+  Hardware НЕ запущен, ждём human ready.
+- Перед boot дождаться tests PASS и human ready; KMS stripes start cue,
+  не менять настройки/не запускать игры. Камеры запрещены. Raw key mapping неизвестен,
+  старые tests2evdev/0events/ERR2 не доказывают рабочие кнопки.
+- Legacy map tool12 canonical gameplay fields пока unchanged, дополнительные
+  L2/R2/FN/volume/power сначала только raw labels, без guessed legacy bits.
+
 ## Разрешённый повтор v11 для human observation
 
 - User отходил и явно запросил повтор. Один unchanged repeat разрешён именно
