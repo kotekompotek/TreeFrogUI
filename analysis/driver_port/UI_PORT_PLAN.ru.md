@@ -51,8 +51,17 @@
   found: put the console in USB (MTP) mode» — ни загрузки, ни NOR-записи,
   ни receipt. Камера не использовалась; квадраты НЕ объявлены исправленными.
   Результат: analysis/driver_port/DRM_FLIP_MIPS_REBUILD_v1_RESULT.json.
-- Следующее: подключить консоль в USB (MTP) и выполнить
-  `python scripts/boot_crypto/run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v1`,
+- Консоль сейчас подключена и отвечает (stock 4.4.186, WorkerTransport).
+  /cubegm полностью бэкаплен: scripts/boot_crypto/backup_cubegm.py (read-only,
+  батч-tar, sha256-манифест, resume, keepawake) ->
+  analysis/boot_crypto/backups/20261116T161658Z_cubegm, complete=true,
+  18035 файлов/1001817323 B, pagefile.sys пропущен; перехеш vs манифест +
+  спот-чек с устройства байт-в-байт. Тесты backup9+poweroff7, pytest278/14.
+  Poweroff-флаги trial-скрипта (--poweroff-on-completion/--poweroff-after)
+  готовы и по умолчанию выключены (включать по команде пользователя).
+- Следующее: выполнить
+  `python scripts/boot_crypto/run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v1`
+  (workdir scripts/boot_crypto, без poweroff-флагов),
   наблюдая смену кадров на предмет чёрных квадратов (камера разрешена).
 
 ## UI directional navigation v1 accepted; black-square defect open

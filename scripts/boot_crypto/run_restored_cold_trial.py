@@ -27,12 +27,48 @@ STOCK = {
 SD = "/mnt/sdcard/cubegm/"
 
 
+def poweroff_console(transport, record, started, after_minutes):
+    """Tests only: power the console off; never part of accepted profiles."""
+    if after_minutes > 0:
+        remaining = started + after_minutes * 60 - time.monotonic()
+        if remaining > 0:
+            time.sleep(remaining)
+    record["poweroff_requested"] = True
+    try:
+        code, _ = transport.run("command -v poweroff", timeout=10)
+        method = "poweroff" if code == 0 else "reboot -p"
+    except Exception as error:
+        record.update(poweroff_method=None, poweroff_verified=False, poweroff_error=str(error))
+        return
+    record["poweroff_method"] = method
+    try:
+        transport.run(method, timeout=15)
+    except Exception:
+        pass
+    deadline = time.monotonic() + 60
+    verified = False
+    while time.monotonic() < deadline:
+        time.sleep(5)
+        try:
+            transport.run("true", timeout=8)
+        except Exception:
+            verified = True
+            break
+    record["poweroff_verified"] = verified
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--deploy", action="store_true", required=True)
     parser.add_argument("folder", type=Path)
+    parser.add_argument("--poweroff-on-completion", action="store_true",
+                        help="power the console off as soon as the trial finishes (tests only)")
+    parser.add_argument("--poweroff-after", type=int, default=0, metavar="MIN",
+                        help="power the console off MIN minutes after trial start (0=disabled, tests only)")
     args = parser.parse_args()
+    assert args.poweroff_after >= 0, "poweroff delay must not be negative"
     folder = args.folder
+    started = time.monotonic()
     manifest = json.loads((folder / "manifest.json").read_text())
     watchdog_seconds = manifest.get('watchdog_seconds', 30)
     assert type(watchdog_seconds) is int and 30 <= watchdog_seconds <= 120
@@ -48,7 +84,9 @@ def main():
               "power_cycle_verified": False, "reset_method": "hardware watchdog reset through NOR; no RAM handoff",
               "native_restore_verified": False, "candidate_folder": str(folder),
               "image_sha256": manifest["sha256"], "session_tag": manifest["session_tag"],
-              "run_id": uuid.uuid4().hex, "boot_requests": 0, "state": "preflight"}
+              "run_id": uuid.uuid4().hex, "boot_requests": 0, "state": "preflight",
+              "poweroff_requested": args.poweroff_on_completion or args.poweroff_after > 0,
+              "poweroff_method": None, "poweroff_verified": None}
 
     def save():
         receipt.write_text(json.dumps(record, indent=2) + "\n")
@@ -211,6 +249,9 @@ def main():
         if record["stock_restored"]:
             record["state"] = ("direct NOR Linux7/PID1/SD verified; automatic stock return and native restoration verified"
                                if record["cold_boot_verified"] else "cold trial evidence collected; stock restoration verified")
+        if record["poweroff_requested"]:
+            save()
+            poweroff_console(transport, record, started, args.poweroff_after)
         save()
     print(json.dumps(record, indent=2))
 

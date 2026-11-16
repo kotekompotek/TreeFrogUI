@@ -48,9 +48,23 @@
   NOR-записи, ни receipt. Камера не использовалась; квадраты НЕ объявлены
   исправленными. Окружение: id_ed25519 получил ACL/owner SYSTEM-only
   (требование Windows OpenSSH; содержимое не менялось).
-- **Следующее:** подключить консоль в USB (MTP) и выполнить
-  `python scripts/boot_crypto/run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v1`,
-  наблюдая смену кадров на предмет чёрных квадратов (камера разрешена).
+- **Консоль подключена и отвечает** (stock buildroot 4.4.186, транспорт
+  WorkerTransport). /cubegm **полностью бэкаплен**: scripts/boot_crypto/
+  backup_cubegm.py (read-only: ls -laR для списка+размеров, скачивание
+  батчами tar, sha256 в манифест, resume по --dest, keepawake на время
+  процедуры). Результат: analysis/boot_crypto/backups/20261116T161658Z_cubegm,
+  complete=true,18035 файлов /1001817323 B, pagefile.sys пропущен (swap);
+  верификация: перехеш всех локальных файлов vs манифест + спот-чек2 файлов
+  cat с устройства (байт-в-байт). Тесты backup9 + poweroff7; полный pytest
+  278passed/14skipped.
+- **Poweroff-механизм для тестов готов, по умолчанию ВЫКЛЮЧЕН:**
+  run_restored_cold_trial.py --poweroff-on-completion / --poweroff-after MIN
+  (по решению пользователя: включать позже по отдельной команде). Логика
+  только в trial-скрипте; gate-тесты запрещают её в принятых ассетах.
+- **Следующее:** выполнить
+  `python scripts/boot_crypto/run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v1`
+  (workdir scripts/boot_crypto, без poweroff-флагов), наблюдая смену кадров
+  на предмет чёрных квадратов (камера разрешена).
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 
