@@ -31,12 +31,12 @@
     "mock_contract": "mock hashes the active scanout buffer at every activation and aborts if the CPU rewrites it (regression guard for the defect); flip ioctl failure, flip event timeout and stale-event drain covered",
     "shared_library_contract": "SHARED_LIB_CONTRACT=PASS: -DR36_BACKEND_TEST_LIBRARY .so exports the five symbols libretro_smoke dlsyms",
     "trace_build": "backend compiles with -DR36_SCANOUT_TRACE -Wall -Wextra -Werror",
-    "mips_mock_so_rebuild": "pending: no mipsel cross gcc in current environment (WSL unavailable); analysis/driver_port/driver_r36_test_mockdrm_v1.so predates this fix"
+    "mips_mock_so_rebuild": "done: rebuilt in QEMU build VM with mipsel-linux-gnu-gcc10.3.0 (see analysis/driver_port/DRM_FLIP_MIPS_REBUILD_v1_RESULT.json); driver_r36_test_mockdrm_v1.so now contains the flip fix"
   },
   "restrictions": [
     "no camera use",
     "no new hardware boot without explicit user readiness",
     "no claim that the black-square defect is fixed until user observes it on hardware"
   ],
-  "next": "On explicit user readiness: rebuild MIPS backend/mock artifacts, deploy candidate, hardware trial observing frame changes for the black-square artifact."
+  "next": "MIPS artifacts rebuilt and cold candidate payload/kernel_cold_ui_flip_v1 prepared offline (DRM_FLIP_MIPS_REBUILD_v1_RESULT.json). Hardware trial blocked at preflight: console not connected in USB (MTP) mode; no boot attempted. When connected: run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v1, observe the black-square artifact."
 }

@@ -48,7 +48,7 @@
     "repeat1_trial": "analysis/boot_crypto/kernel_cold_ui_live_scanout_v11_repeat1_trial.json",
     "user_visual_observation": "CONFIRMED: UI with recent game visible before automatic restart in repeat1; human eyewitness, no camera",
     "repeat1_digital_persistence_verified": true,
-    "next_policy": "Four-direction navigation accepted; transient black-square defect open. Driver flip support verified offline and userspace backend rewritten to two-buffer synchronous page flip (DRM_FLIP_OFFLINE_v1_RESULT.json); not yet tested on hardware. Next: rebuild MIPS artifacts and run a hardware trial only on explicit user readiness. No camera, no unchanged boot repetition.",
+    "next_policy": "Four-direction navigation accepted; transient black-square defect open. Flip-fix MIPS artifacts rebuilt with mipsel-linux-gnu-gcc10.3.0 and console-runtime link contract PASS (DRM_FLIP_MIPS_REBUILD_v1_RESULT.json); cold candidate payload/kernel_cold_ui_flip_v1 ready offline. Hardware trial blocked until the console is connected in USB (MTP) mode. No camera, no unchanged boot repetition.",
     "navigation_verified": true,
     "navigation_scope": "Four directions only",
     "navigation_result": "analysis/driver_port/UI_NAVIGATION_v1_RESULT.json",
@@ -69,12 +69,17 @@
     "double_buffer_flip_offline_verified": true,
     "double_buffer_flip_result": "analysis/driver_port/DRM_FLIP_OFFLINE_v1_RESULT.json",
     "flip_capability_test": "scripts/peripheral_lab/test_drm_flip_support.py",
+    "mips_rebuild_result": "analysis/driver_port/DRM_FLIP_MIPS_REBUILD_v1_RESULT.json",
+    "mips_flip_binaries": {
+      "production": "analysis/driver_port/driver_r36_drm_ui_test.so (sha256 74012f126c6fea4357dbad182063a59ab05438d070cc967096fdcd3f91aa828b, NEEDED libpthread.so.0 libc.so.6 ld.so.1, exact v11 parity)",
+      "notrace": "analysis/driver_port/backend_notrace.so",
+      "mock": "analysis/driver_port/driver_r36_test_mockdrm_v1.so (five-export contract; emulator smoke DRM_FLIP_MOCK_SMOKE_v18/8 PASS)"
+    },
+    "mips_rebuild_pending": null,
     "mips_binaries_predate_flip_fix": [
       "analysis/driver_port/driver_r36_drm_video_v2.so",
-      "analysis/driver_port/driver_r36_drm_console_v3.so",
-      "analysis/driver_port/driver_r36_test_mockdrm_v1.so"
+      "analysis/driver_port/driver_r36_drm_console_v3.so"
     ],
-    "mips_rebuild_pending": "no mipsel cross gcc in current environment; rebuild before any new hardware or emulator-mock use",
     "tests": [
       "real C backend mocked DRM init/mmap>4GiB/submit/error/cleanup PASS",
       "double-buffer flip mock PASS: active-scanout hash guard, flip ioctl failure, flip event timeout, stale event drain",
@@ -87,7 +92,7 @@
     "hardware_binary": "analysis/driver_port/driver_r36_drm_console_v3.so",
     "hardware_trial": "analysis/boot_crypto/kernel_cold_frontend_backend_v3_trial.json",
     "hardware_scope": "60 real backend ABI frames through matching DRM on Linux7/actual SD glibc; full picoarch/FrogUI not tested",
-    "hardware_scope_note": "hardware_verified refers to the pre-flip single-buffer binary; the double-buffer flip backend has no hardware trial yet",
+    "hardware_scope_note": "hardware_verified refers to the pre-flip single-buffer binary; the double-buffer flip backend has a prepared cold candidate payload/kernel_cold_ui_flip_v1 but no hardware trial yet (console USB connection required)",
     "limitations": [
       "CPU rendering into inactive buffer with synchronous page flip; no GE acceleration",
       "picoarch optional GE object deliberately absent",

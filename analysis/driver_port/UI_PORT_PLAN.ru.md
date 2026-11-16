@@ -23,11 +23,37 @@
   события. REAL_BACKEND_MOCK_DRM=PASS и SHARED_LIB_CONTRACT=PASS в QEMU build
   VM (-Wall -Wextra -Werror, trace-сборка отдельно). Полный pytest Windows:
   262 passed/14 skipped. Результат: analysis/driver_port/DRM_FLIP_OFFLINE_v1_RESULT.json.
-- Ограничения: mipsel cross gcc недоступен — driver_r36_test_mockdrm_v1.so и
-  MIPS .so backend НЕ пересобраны (старые артефакты не тестировать как новые).
-  Никакого hardware-опыта и камеры; квадраты НЕ объявлены исправленными.
-- Следующее при явной готовности пользователя: пересобрать MIPS-артефакты,
-  задеплоить candidate, hardware trial с наблюдением смены кадров.
+
+## MIPS-артефакты пересобраны; candidate flip готов, hardware trial ждёт консоль
+
+- Тулчейн: mipsel-linux-gnu-gcc (Ubuntu 10.3.0-1ubuntu1 — та же версия, что в
+  историческом .so) из D:/wsl/ubmips/rootfs, извлечён в QEMU build VM в
+  абсолютные пути. Потребовались фиксы: битые Windows-симлинки (0 байт),
+  +x на PT_INTERP ld-linux, PATH-шим /opt/mipsbin на glibc cross-binutils
+  (gcc вызывает непрефиксный `as`, Alpine musl ломался о glibc-каталог).
+- Собрано (analysis/driver_port/): driver_r36_drm_ui_test.so (trace,
+  sha256 74012f12..., NEEDED libpthread.so.0 + libc.so.6 + ld.so.1 — точный
+  паритет с v11; MIPS32r2 hard-float; GLIBC<=2.7; экспорт4 = v11),
+  backend_notrace.so, driver_r36_test_mockdrm_v1.so (5 экспортов, mock
+  целен в qemu test runtime, не деплоится).
+- Контракт с консолью: CONSOLE_RUNTIME_DLOPEN=PASS — RTLD_NOW dlopen нового
+  .so с сохранённым консольным ld.so.1/libc (макс. GLIBC_2.19)/libpthread/
+  libdl под qemu-mipsel, все4 экспорта резолвятся. Лог-токены и версии
+  GLIBC побайтно-сопоставимы с историческим v11 (readelf parity).
+- Эмулятор: DRM_FLIP_MOCK_SMOKE_v18/8 PASS (4 реальных MIPS-cores x2 режима,
+  harness libretro-smoke-mips-v5, actual_backend_frames в каждом прогоне).
+  test_drm_flip_support.py3/3 PASSED; pytest262/14.
+- Candidate: payload/kernel_ui_flip_v1 (копия navigation_v1 только с новым
+  driver .so, manifest+provenance) -> cold payload/kernel_cold_ui_flip_v1
+  (sha256 17ea5104...): native gzip validate PASS, cold_restore_emulation8
+  строк PASS, cold_restore_native_fallback1 PASS.
+- Hardware trial НЕ запускался: транспорт на preflight ответил «R36S not
+  found: put the console in USB (MTP) mode» — ни загрузки, ни NOR-записи,
+  ни receipt. Камера не использовалась; квадраты НЕ объявлены исправленными.
+  Результат: analysis/driver_port/DRM_FLIP_MIPS_REBUILD_v1_RESULT.json.
+- Следующее: подключить консоль в USB (MTP) и выполнить
+  `python scripts/boot_crypto/run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v1`,
+  наблюдая смену кадров на предмет чёрных квадратов (камера разрешена).
 
 ## UI directional navigation v1 accepted; black-square defect open
 

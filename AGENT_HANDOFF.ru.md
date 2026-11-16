@@ -24,13 +24,33 @@
   даёт __user; это только флаг сборки теста, не правка исходников).
   Полный pytest Windows:262passed/14skipped.
 - Результат: analysis/driver_port/DRM_FLIP_OFFLINE_v1_RESULT.json.
-- **Ограничения:** mipsel cross gcc в окружении нет (WSL недоступен) —
-  driver_r36_test_mockdrm_v1.so и MIPS video .so НЕ пересобраны, emulator
-  smoke с mock-drm-backend не запускался. Камера запрещена; hardware trial
-  НЕ запускался; квадраты НЕ объявлены исправленными.
-- **Следующее при явной готовности пользователя:** пересобрать MIPS
-  артефакты, подготовить candidate, hardware trial с наблюдением смены кадров
-  (без камеры, по слову пользователя).
+- **MIPS пересобран (DRM_FLIP_MIPS_REBUILD_v1_RESULT.json):** тулчейн
+  mipsel-linux-gnu-gcc10.3.0 (Ubuntu, та же версия, что в историческом .so)
+  из D:/wsl/ubmips/rootfs извлечён в QEMU build VM; фиксы: битые0-байтовые
+  симлинки, +x на ld-linux (open_exec), PATH-шим /opt/mipsbin на glibc
+  cross-binutils (gcc зовёт непрефиксный `as`). Собраны
+  driver_r36_drm_ui_test.so (trace, sha25674012f12...,
+  NEEDED libpthread.so.0+libc.so.6+ld.so.1 — точный паритет v11, GLIBC<=2.7,
+  экспорт4), backend_notrace.so и mock driver_r36_test_mockdrm_v1.so (5
+  экспортов; целен в qemu test runtime, не деплоится).
+- **Верификация пересборки:** readelf-паритет с историческим v11 (NEEDED/
+  GLIBC/экспорт/лог-токены); CONSOLE_RUNTIME_DLOPEN=PASS — RTLD_NOW dlopen
+  с сохранённым консольным ld.so.1/libc(<=GLIBC_2.19)/libpthread/libdl под
+  qemu-mipsel; emulator smoke DRM_FLIP_MOCK_SMOKE_v18/8 PASS (harness v5,
+  actual_backend_frames во всех прогонах); test_drm_flip_support3/3;
+  pytest262/14.
+- **Candidate готов:** payload/kernel_ui_flip_v1 (копия navigation_v1 только
+  с новым driver .so + manifest provenance) → cold payload/kernel_cold_ui_flip_v1
+  (sha25617ea5104...): native gzip validate PASS, cold_restore_emulation8
+  PASS, cold_restore_native_fallback1 PASS.
+- **Hardware trial не запускался:** транспорт на preflight — «R36S not found:
+  put the console in USB (MTP) mode and connect the cable». Ни загрузки, ни
+  NOR-записи, ни receipt. Камера не использовалась; квадраты НЕ объявлены
+  исправленными. Окружение: id_ed25519 получил ACL/owner SYSTEM-only
+  (требование Windows OpenSSH; содержимое не менялось).
+- **Следующее:** подключить консоль в USB (MTP) и выполнить
+  `python scripts/boot_crypto/run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v1`,
+  наблюдая смену кадров на предмет чёрных квадратов (камера разрешена).
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 
