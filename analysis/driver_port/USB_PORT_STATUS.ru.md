@@ -116,6 +116,26 @@ host_cleanup_wrote_boot_file=false. Это НЕ MTP/host/OTG/background acceptan
     полный цикл файловых операций `MTP` + одновременный `ADB` и кросс-сборка MIPS32r2.
     Аппаратная приёмка `MTP + ADB` на консоли впереди.
 
+## Офлайн-подготовка USB OTG Host + Wi-Fi + Bluetooth 2026-11-17
+
+- Проанализирован upstream-glue `drivers/usb/musb/hc16xx.c` (`payload/kernel_usb_cdc_vm_v2/build_usb_glue.c`)
+  и найдены 4 дефекта, блокировавшие Host/OTG:
+  1. `hc16xx_set_phy_power()` читал/писал `USB_O_UTMI` (`0x380`) через 32-бит `readl`/`writel`
+     (задевая `USB_O_VBUS` `0x381`) и ориентировался на `glue->musb->is_host` до её установки,
+     возвращая `UTMI_PERIPHERAL_MODE` (`0x9c`).
+  2. `hc16xx_musb_set_mode()` не поддерживал `case MUSB_OTG:` (`-EOPNOTSUPP`) и не переключал
+     бит `MUSB_DEVCTL_SESSION` для старта Host-сессии.
+  3. `hc16xx_glue_probe()` жёстко назначал `platform_data = &hc16xx_musb_data` с `.mode = MUSB_PERIPHERAL`.
+- В `scripts/kernel_lab/usb_overlay.py` добавлен `patch_musb_host_otg_support` (вызывается из
+  `scripts/kernel_lab/integrate_ports.py`), устраняющий все 4 причины; добавлены
+  `scripts/kernel_lab/r36-usb-otg.dts` (`usb0` `dr_mode = "otg"`, `usb1` `dr_mode = "host"`),
+  флаг `R36_OTG_WIFI_BT=1` в `scripts/peripheral_lab/vm_build_kernel.sh` (Dual-Role MUSB,
+  `CFG80211`/`MAC80211`/`RTL8XXXU`/`RTW88`/`MT7601U`/`RT2800USB`/`ATH9K_HTC`,
+  `BT`/`BT_HCIBTUSB*` и упаковка `modules.tar.gz`) и userspace-зонд
+  `scripts/peripheral_lab/usb_otg_wifi_bt_probe.h` (`r36_otg_set_role`, классификация,
+  HCI `READ_BD_ADDR`, `wlan0` sysfs + `IFF_UP`). Проверено C-моделями и MIPS `zig cc`;
+  физический тест с OTG-кабелем и реальными адаптерами будет возможен при включении консоли.
+
 Первый hardware кандидат отказал ENOENT в configfs link: kern_path разрешает
 relative target от syscall cwd, исправлен absolute target. Затем Windows watcher
 сначала терял serial с дефисами, потом падал на PowerShell query timeout.

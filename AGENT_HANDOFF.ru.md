@@ -159,7 +159,7 @@
     `cold_restore_emulation` 8/8 PASS, `cold_restore_native_fallback` 1/1 PASS).
   - **Следующее (вечером при включении консоли):** перезапустить `keepawake` и
     выполнить hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
-- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`295 passed, 14 skipped`):**
+- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`299 passed, 14 skipped`):**
   1. **USB Composite `MTP + ADB` (`FunctionFS`) (`859bcb1`, `684d3f0`):**
      `scripts/peripheral_lab/usb_ffs_mtp_adb.h`, `scripts/peripheral_lab/usb_mtp_adb_service.c`,
      `scripts/peripheral_lab/vm_build_kernel.sh` (`--enable USB_CONFIGFS_F_FS`),
@@ -198,13 +198,28 @@
      `/dev/check_adc1` (ch1) и `/dev/check_adc5` (ch5) с калибровкой `(sample * 241) / ref`
      и чтением по 1 байту без EOF при удержанном открытом fd, плюс userspace-кривая
      R36S `{64, 153, 180} -> {0, 50, 100}%` и порог зарядки `>= 64`.
-  5. **Политика прямых кнопок `r36-direct-keys` и PA/наушников `GPIO19`/`GPIO15`:**
+  5. **Политика прямых кнопок `r36-direct-keys` и PA/наушников `GPIO19`/`GPIO15` (`26779f7`):**
      `scripts/peripheral_lab/direct_keys_policy.h` + `test_direct_keys_policy.py`.
      Коды сверены с `INPUT_PHYSICAL_v3_RESULT.json` (`L2=109, R2=104, FN=59, VOL+=115,
      VOL-=114, POWER=116`): регулировка громкости `0..100%`, `FN`+`VOL+/-` для яркости
      `5..100%`, короткое нажатие `POWER` (`<1500 мс`) -> sleep toggle / удержание
      `>=1500 мс` -> poweroff, и таблица истинности `r36_speaker_amp_should_enable` для
      `GPIO19` speaker PA / `GPIO15` HP-detect.
+  6. **USB OTG Host + адаптеры Wi-Fi и Bluetooth (`324aa22` + зонд):**
+     `scripts/kernel_lab/usb_overlay.py` (`patch_musb_host_otg_support`),
+     `scripts/kernel_lab/integrate_ports.py`, `scripts/kernel_lab/r36-usb-otg.dts`,
+     `scripts/peripheral_lab/vm_build_kernel.sh` (`R36_OTG_WIFI_BT=1`),
+     `scripts/kernel_lab/tests/test_usb_overlay.py`,
+     `scripts/peripheral_lab/usb_otg_wifi_bt_probe.h` + `test_usb_otg_wifi_bt.py`.
+     В glue `hc16xx.c` устранены 4 блокирующие ошибки Host/OTG: 8-бит `readb`/`writeb`
+     для `USB_O_UTMI` (`0x380`, не затирая `USB_O_VBUS` `0x381`), поле `role_mode`
+     (без сброса `0x8c -> 0x9c` в `hc16xx_set_phy_power`), поддержка `MUSB_OTG` и импульс
+     `MUSB_DEVCTL_SESSION`, а также проброс `pdata.mode` из `dr_mode` через
+     `platform_device_add_data`. Включены Dual-Role MUSB, `CFG80211`/`MAC80211`/USB Wi-Fi
+     и `BT`/`BT_HCIBTUSB*` (`modules.tar.gz`) и userspace-зонд (`r36_otg_set_role`,
+     классификация, HCI `READ_BD_ADDR`, `wlan0` sysfs + `IFF_UP`); C-модель glue и зонд PASS.
+     Вечером на реальной консоли нужна аппаратная проверка: пересборка OTG-ядра с
+     модулями (`R36_OTG_WIFI_BT=1`) и живой тест с OTG-адаптером Wi-Fi / Bluetooth.
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 

@@ -118,7 +118,7 @@
   и `payload/kernel_cold_ui_flip_v4` (`watchdog_seconds=90`, эмуляции 8+1 PASS).
   Следующий шаг — hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
 - Пока консоль выключена до вечера, подготовлены и верифицированы офлайн следующие
-  модули порта (`295 passed, 14 skipped`):
+  модули порта (`299 passed, 14 skipped`):
   - `scripts/peripheral_lab/usb_ffs_mtp_adb.h` + `usb_mtp_adb_service.c` +
     `test_usb_ffs_mtp_adb.py`: дескрипторы `FunctionFS` v2 для композитного `MTP + ADB`
     (`0x18d1:0x4e22`, `3 TX + 2 RX <= 5 TX + 5 RX` в `hc16xx_fifo_cfg`), полный стек
@@ -146,6 +146,13 @@
     политика прямых кнопок `r36-direct-keys` (`L2=109, R2=104, FN=59, VOL+=115,
     VOL-=114, POWER=116`: громкость, `FN`+`VOL+/-` яркость, short/long `POWER`) и
     правило `GPIO19` speaker PA по `GPIO15` headphone-detect.
+  - `scripts/kernel_lab/usb_overlay.py` (`patch_musb_host_otg_support`) +
+    `r36-usb-otg.dts` + `vm_build_kernel.sh` (`R36_OTG_WIFI_BT=1`) +
+    `usb_otg_wifi_bt_probe.h` + `test_usb_otg_wifi_bt.py`: исправление 4 ошибок
+    `hc16xx` MUSB для Host/OTG (`USB_O_UTMI` byte R/W, `role_mode`, `MUSB_DEVCTL_SESSION`,
+    `pdata.mode` из `dr_mode`), конфиг модулей Wi-Fi/BT (`CFG80211`/`MAC80211`/`RTL8XXXU`/
+    `RTW88`/`MT7601U`/`BT_HCIBTUSB`) и userspace-зонд ролей / `READ_BD_ADDR` / `wlan0`;
+    при наличии консоли и OTG-адаптера потребуется сборка ядра с модулями и live-проверка.
 
 ## UI directional navigation v1 accepted; black-square defect open
 
