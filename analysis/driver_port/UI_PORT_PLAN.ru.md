@@ -76,11 +76,24 @@
   чёрных квадратов не видно ни в одном кадре; дальше чёрный кадр сброса и
   штатный возврат stock. Квадраты НЕ объявлены исправленными — условие наблюдения
   (смена кадров) не наступило.
-- Следующее: distinct instrumented candidate — mark-точки NOR user_trace в
-  ui_console_init.c после module load/child start/deadline/remount, чтобы поймать
-  место зависания; новый candidate ID и новый receipt (тот же ID запрещён —
-  receipt существует). Консоль в stock; keepawake перезапущен (авто-выключение
-  отключено по указанию пользователя).
+- Корневая причина неполного evidence (manifest/receipt): UI-окно PID1=60с
+  (R36_UI_WINDOW_TICKS=600, байт addiu $at,$zero,600 в init.elf), а flip cold
+  собран с watchdog_seconds=30 (manifest и receipt trace=30) → срез до finish_log
+  (~61с) гарантирован; nav-candidate имел watchdog90>60 → отчёты записаны.
+  Суб-гипотеза (зависший child, D-state → goto wait_reset) разрешается mark-точками.
+- Instrumented candidate ГОТОВ: /dev/kmsg mark-точки в ui_console_init.c
+  (retained ring 0x2f91000 → .kernel.log триала; NOR trace header занят, stage-гейты
+  не трогаем) — report_open/setup_done/module_loaded/child_forked/window_done/
+  reap_child_failed/reaped/notes remount и т.д. Сборка Zig0.17 musleabi/mips32r2/
+  soft-float (abiflags fp=3), objcopy без .pdr → slot 33131≤34768; все192 строки
+  старого init сохранены. payload/kernel_ui_flip_v2 + cold
+  payload/kernel_cold_ui_flip_v2 (watchdog90); эмуляции PASS (8+1), flip3/3,
+  pytest278/14.
+- Следующее: hardware-trial run_restored_cold_trial.py --deploy
+  payload/kernel_cold_ui_flip_v2 с камерой; анализ receipt + .kernel.log mark-строк
+  + кадров. Новый candidate ID и новый receipt (тот же ID запрещён — receipt
+  существует). Консоль в stock; keepawake перезапущен (авто-выключение отключено
+  по указанию пользователя).
 
 ## UI directional navigation v1 accepted; black-square defect open
 

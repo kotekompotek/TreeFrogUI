@@ -49,7 +49,7 @@
     "repeat1_trial": "analysis/boot_crypto/kernel_cold_ui_live_scanout_v11_repeat1_trial.json",
     "user_visual_observation": "CONFIRMED: UI with recent game visible before automatic restart in repeat1; human eyewitness, no camera",
     "repeat1_digital_persistence_verified": true,
-    "next_policy": "Flip hardware trial kernel_cold_ui_flip_v1 executed: mechanical PASS (cold NOR boot, native restore, stock return,6hashes) but evidence incomplete (no proof/ui probe files, cold_boot_verified=false; only diff vs successful nav trial is the new driver_r36_drm_ui_test.so). Black squares NOT declared fixed: camera saw no frame changes during the custom-boot window. Next: distinct instrumented candidate with NOR user_trace marks in ui_console_init.c (new candidate ID and receipt); no repetition with the same receipt.",
+    "next_policy": "Flip hardware trial kernel_cold_ui_flip_v1 executed: mechanical PASS (cold NOR boot, native restore, stock return,6hashes) but evidence incomplete (no proof/ui probe files, cold_boot_verified=false). Root cause found offline: UI window60s (R36_UI_WINDOW_TICKS=600) vs candidate watchdog30s - init cut before finish_log; nav had watchdog90. Black squares NOT declared fixed: camera saw no frame changes. Next: instrumented trial payload/kernel_cold_ui_flip_v2 (kmsg marks + watchdog90, new candidate ID and receipt); no repetition with the same receipt.",
     "navigation_verified": true,
     "navigation_scope": "Four directions only",
     "navigation_result": "analysis/driver_port/UI_NAVIGATION_v1_RESULT.json",
@@ -69,7 +69,16 @@
     "only_diff_vs_nav_trial": "driver_r36_drm_ui_test.so sha74012f12... vs991aa7e...; init.elf/initramfs/vmlinux/publisher byte-identical",
     "camera_observation": "180 frames; no visible frame changes during the custom-boot window, no black squares in any frame; frozen pre-boot page until watchdog reset then stock splash",
     "black_squares_conclusion": "NOT fixed, NOT reproduced: observation condition (frame changes) never occurred; UI likely never presented - cause not proven",
-    "next": "distinct instrumented candidate: NOR user_trace marks in ui_console_init.c after module load/child start/deadline/remount; new candidate ID and receipt"
+    "root_cause_evidence_gap": "UI window60s (R36_UI_WINDOW_TICKS=600; addiu $at,$zero,600 in init.elf) vs kernel_cold_ui_flip_v1 watchdog30s (manifest+receipt trace) - armed watchdog cut PID1 before finish_log report writes (~61s needed); nav candidate watchdog90 completed writes; sub-hypothesis stuck child/D-state goto wait_reset remains to be resolved by marks",
+    "instrumented_candidate": {
+      "profile": "payload/kernel_ui_flip_v2",
+      "cold": "payload/kernel_cold_ui_flip_v2",
+      "watchdog_seconds": 90,
+      "init_slot": "initramfs33131<=34768; init67528B (zig0.17 mipsel-linux.4.4-musleabi mips32r2 soft-float, abiflags fp=3, .pdr/.mdebug/.comment objcopy-stripped, all192 old strings preserved)",
+      "instrumentation": "/dev/kmsg PID1 marks into retained ring0x2f91000 -> trial .kernel.log: sd_mount_failed/report_open/setup_done/module_loaded/child_forked/setpgid_failed/kmsg child samples state+threads+wchan+syscall at ticks40,120/window_done/killing_child/reap_child_failed before unchanged goto wait_reset/reaping_helpers/reaped/nav_stopped/sd_rw|sd_remount_failed/reports_written/waiting_reset; NOR stage==6 gates untouched",
+      "offline": "cold_restore_emulation8 rows PASS + native_fallback1 row PASS; test_drm_flip_support3/3; pytest278passed/14skipped"
+    },
+    "next": "hardware trial run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v2 with camera; analyze receipt + .kernel.log mark lines + frames to localize init/child stop point and UI presentation; new candidate ID and receipt"
   },
   "video": {
     "source": "scripts/peripheral_lab/video_drm_backend.c",

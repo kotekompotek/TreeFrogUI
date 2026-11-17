@@ -81,9 +81,34 @@
   чёрный кадр сброса и штатный возврат stock (logo + та же страница).
   **Квадраты НЕ объявлены исправленными:** условие наблюдения (смена кадров)
   не наступило; содержимое кадров согласуется с тем, что UI не отобразился.
-- **Следующее:** distinct instrumented candidate — mark-точки NOR user_trace в
-  ui_console_init.c после module load/child start/deadline/remount, чтобы
-  поймать место зависания; новый candidate ID и новый receipt (старый
+- **Корневая причина неполного evidence найдена (manifest/receipt, без hardware):**
+  UI-окно PID1 =60с (R36_UI_WINDOW_TICKS=600; в init.elf байт `addiu $at,$zero,600`),
+  а flip cold-кандидат собирался с `--watchdog-seconds 30` (manifest
+  kernel_cold_ui_flip_v1.watchdog_seconds=30, receipt trace watchdog=30). Init
+  обрезан watchdog'ом ДО finish_log (~61с требуется) — запись отчётов не
+  наступает физически, tmpfs гибнет при сбросе. Nav-candidate собирался с
+  watchdog90 >60 → отчёты записаны, cold_boot_verified=true. Гипотеза про зависший
+  child (D-state → неребейбельный waitpid → goto wait_reset) остаётся суб-гипотезой
+  и разрешается инструментированным запуском.
+- **Instrumented candidate ГОТОВ (offline verified):** ui_console_init.c получил
+  mark-точки в /dev/kmsg (PID1 → retained kernel ring 0x2f91000 → триал собирает
+  .kernel.log; NOR trace header все16 слов занят — stage-гейты не трогаем):
+  sd_mount_failed/report_open/setup_done/module_loaded/child_forked pid=/
+  setpgid_failed/сэмплы child (state/threads/wchan/syscall на тиках40 и120)/
+  window_done alive=/killing_child/reap_child_failed (перед неизменённой строкой
+  goto wait_reset)/reaping_helpers/reaped exit=/nav_stopped/sd_rw|sd_remount_failed/
+  reports_written/waiting_reset. Сборка: Zig0.17 `zig cc -target
+  mipsel-linux.4.4-musleabi -march=mips32r2 -msoft-float -static -Os -Werror`
+  (тот же ABI, abiflags fp=3), objcopy убрал .pdr/.mdebug/.comment ради слота;
+  все192 строки старого init сохранены (0 missing), пароль4 «missing» — только
+  имена секций/.comment. patch_diagnostic_init → payload/kernel_ui_flip_v2
+  (initramfs33131 ≤34768); cold → payload/kernel_cold_ui_flip_v2 с
+  `--watchdog-seconds 90` (nav-паритет >60). Эмуляции cold_restore PASS (8+1 rows),
+  test_drm_flip_support3/3, pytest278passed/14skipped.
+- **Следующее:** hardware-trial `run_restored_cold_trial.py --deploy
+  payload/kernel_cold_ui_flip_v2` с параллельной камерой (разрешена); анализ
+  receipt + .kernel.log mark-строк + кадров — локализовать точку остановки
+  init/child и факт отображения UI; новый candidate ID и новый receipt (старый
   receipt существует, повтор с тем же ID запрещён). Консоль сейчас в stock,
   keepawake перезапущен — авто-выключение отключено.
 

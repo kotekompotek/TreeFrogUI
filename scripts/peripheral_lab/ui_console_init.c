@@ -41,6 +41,59 @@ static void copy_log(const char *source,const char *destination)
     out=open(destination,O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC,0644);
     if(out>=0){while((n=read(in,buffer,sizeof(buffer)))>0){ssize_t done=0;while(done<n){ssize_t w=write(out,buffer+done,n-done);if(w<=0)break;done+=w;}if(done!=n)break;}fsync(out);close(out);}close(in);
 }
+/* /tmp reports die with the watchdog reset; the retained kernel ring does not. */
+static void kmsg_line(int fd,const char *text)
+{
+    size_t length=strlen(text);
+    if(fd>=0&&write(fd,text,length)!=(ssize_t)length){}
+}
+static void kmsg_mark(int fd,const char *text)
+{
+    char line[192];int length=snprintf(line,sizeof(line),"<3>R36PID1 %s\n",text);
+    if(length>0&&length<(int)sizeof(line))kmsg_line(fd,line);
+}
+static void kmsg_sample(int fd,pid_t pid)
+{
+    char path[160],line[512],out[400];FILE *file;DIR *tasks;struct dirent *entry;
+    if(fd<0)return;
+    snprintf(path,sizeof(path),"/proc/%ld/status",(long)pid);file=fopen(path,"r");
+    if(file){
+        while(fgets(line,sizeof(line),file))if(!strncmp(line,"State:",6)||!strncmp(line,"Threads:",8)){
+            int length=snprintf(out,sizeof(out),"<3>R36PID1 ui_state %s",line);
+            if(length>0&&length<(int)sizeof(out))kmsg_line(fd,out);
+        }
+        fclose(file);
+    }
+    snprintf(path,sizeof(path),"/proc/%ld/task",(long)pid);tasks=opendir(path);if(!tasks)return;
+    while((entry=readdir(tasks))){
+        int at,length;
+        if(entry->d_name[0]=='.')continue;
+        length=snprintf(out,sizeof(out),"<3>R36PID1 ui_thread %.32s",entry->d_name);
+        at=(length>0&&length<(int)sizeof(out))?length:0;
+        snprintf(path,sizeof(path),"/proc/%ld/task/%.32s/wchan",(long)pid,entry->d_name);
+        file=fopen(path,"r");
+        if(file){
+            if(fgets(line,sizeof(line),file)){
+                line[strcspn(line,"\r\n")]=0;
+                length=snprintf(out+at,sizeof(out)-at," wchan=%s",line);
+                if(length>0&&length<(int)sizeof(out)-at)at+=length;
+            }
+            fclose(file);
+        }
+        snprintf(path,sizeof(path),"/proc/%ld/task/%.32s/syscall",(long)pid,entry->d_name);
+        file=fopen(path,"r");
+        if(file){
+            if(fgets(line,sizeof(line),file)){
+                line[strcspn(line,"\r\n")]=0;
+                length=snprintf(out+at,sizeof(out)-at," sys=%s",line);
+                if(length>0&&length<(int)sizeof(out)-at)at+=length;
+            }
+            fclose(file);
+        }
+        if(at>0&&at<(int)sizeof(out)-1){out[at++]='\n';out[at]=0;kmsg_line(fd,out);}
+    }
+    closedir(tasks);
+}
 static void sample_process(pid_t pid)
 {
     char path[160],line[512];FILE *file;DIR *tasks;struct dirent *entry;
@@ -88,17 +141,19 @@ static int ram_settings(void)
 }
 int main(void)
 {
-    struct utsname u;char id[80]="missing";int fd,attempt,status=0,done=0,module=-1,childlog=-1;
+    struct utsname u;char id[80]="missing";char mark[96];int fd,attempt,status=0,done=0,module=-1,childlog=-1,kfd=-1;
     pid_t child=-1,got;int ipc=-1;key_t key;volatile unsigned int *keys=(void *)-1;
     mkdir("/dev",0755);mkdir("/proc",0755);mkdir("/sys",0755);mkdir("/sd",0755);mkdir("/tmp",01777);mkdir("/mnt",0755);
     if(mount("devtmpfs","/dev","devtmpfs",0,NULL)||mount("proc","/proc","proc",0,NULL)||mount("sysfs","/sys","sysfs",0,NULL)||uname(&u))goto wait_reset;
+    kfd=open("/dev/kmsg",O_WRONLY|O_CLOEXEC);
     mark_userspace();
     for(attempt=0;attempt<10;attempt++){if(!mount("/dev/mmcblk0p1","/sd","vfat",MS_RDONLY|MS_NOATIME,"iocharset=iso8859-1"))break;sleep(1);}
-    if(attempt==10)goto wait_reset;
+    if(attempt==10){kmsg_mark(kfd,"stage=sd_mount_failed");goto wait_reset;}
     fd=open("/sd/cubegm/r36-run-id.txt",O_RDONLY|O_CLOEXEC);if(fd>=0){ssize_t n=read(fd,id,sizeof(id)-1);if(n>0){id[n]=0;id[strcspn(id,"\r\n")]=0;}close(fd);}
     fd=open("/tmp/ui-report.txt",O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0600);if(fd<0)goto finish_sd;
     if(dup2(fd,1)<0||dup2(fd,2)<0){close(fd);goto finish_sd;}close(fd);setvbuf(stdout,NULL,_IOLBF,0);
     printf("R36 UNCHANGED UI PROBE V1\nrun_id=%s\nrelease=%s\nversion=%s\n",id,u.release,u.version);
+    kmsg_mark(kfd,"stage=report_open");
     if(strncmp(u.release,"7.2.0-rc5-r36",sizeof("7.2.0-rc5-r36")-1))goto finish_log;
     if(symlink("/sd","/mnt/sdcard")||symlink("/sd/rootfs/lib","/lib")||symlink("/sd/rootfs/usr","/usr")||
        symlink("/sd/rootfs/bin","/bin")||symlink("/sd/rootfs/sbin","/sbin")||symlink("/sd/rootfs/etc","/etc")){
@@ -115,8 +170,10 @@ int main(void)
     ipc=shmget(key,4,IPC_CREAT|IPC_EXCL|0600);if(ipc<0)goto finish_log;
     keys=shmat(ipc,NULL,0);if(keys==(void *)-1)goto finish_log;*keys=0;
 #endif
+    kmsg_mark(kfd,"stage=setup_done");
     fd=open("/sd/cubegm/r36_hc16xx_drm.ko",O_RDONLY|O_CLOEXEC);if(fd<0)goto finish_log;
     module=syscall(SYS_finit_module,fd,"",0);close(fd);printf("ui_module_load_rc=%d\n",module);if(module)goto finish_log;
+    kmsg_mark(kfd,"stage=module_loaded");
     childlog=open("/tmp/ui-child.txt",O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0600);if(childlog<0)goto finish_log;
     /* FrogUI reserves ~79MiB sparse BSS but stock UI RSS is ~6MiB. Without
      * stock swap, heuristic commit accounting rejects mmap before first touch.
@@ -150,14 +207,16 @@ int main(void)
         _exit(127);
     }
     close(childlog);childlog=-1;
+    snprintf(mark,sizeof(mark),"stage=child_forked pid=%ld",(long)child);kmsg_mark(kfd,mark);
     /* Establish the group from both sides before the child can create helpers. */
-    if(setpgid(child,child)&&errno!=EACCES&&errno!=ESRCH){kill(child,SIGKILL);do{got=waitpid(child,&status,0);}while(got<0&&errno==EINTR);if(got!=child)goto wait_reset;goto finish_log;}
+    if(setpgid(child,child)&&errno!=EACCES&&errno!=ESRCH){kmsg_mark(kfd,"stage=setpgid_failed");kill(child,SIGKILL);do{got=waitpid(child,&status,0);}while(got<0&&errno==EINTR);if(got!=child)goto wait_reset;goto finish_log;}
     for(unsigned int tick=0;tick<R36_UI_WINDOW_TICKS;tick++){
 #ifdef R36_UI_NAVIGATION
         if(!navigation_alive()){puts("ui_navigation_bridge_lost=1");break;}
 #endif
         got=waitpid(child,&status,WNOHANG);if(got==child){done=1;break;}if(got<0&&errno!=EINTR)break;
         if(tick==40||tick==80||tick==120){printf("ui_sample_tick=%u\n",tick);sample_process(child);}
+        if(tick==40||tick==120)kmsg_sample(kfd,child);
         usleep(100000);
     }
     if(!done){
@@ -166,16 +225,22 @@ int main(void)
         if(sample){while(fgets(line,sizeof(line),sample))if(!strncmp(line,"Vm",2)||!strncmp(line,"Threads:",8))printf("ui_memory=%s",line);fclose(sample);}
     }
     printf("ui_alive_at_deadline=%d\n",!done);
-    if(!done){kill(-child,SIGTERM);for(unsigned int t=0;t<10;t++){got=waitpid(child,&status,WNOHANG);if(got==child){done=1;break;}usleep(100000);}if(!done){kill(-child,SIGKILL);do{got=waitpid(child,&status,0);}while(got<0&&errno==EINTR);}}
+    snprintf(mark,sizeof(mark),"stage=window_done alive=%d",!done);kmsg_mark(kfd,mark);
+    if(!done){kmsg_mark(kfd,"stage=killing_child");kill(-child,SIGTERM);for(unsigned int t=0;t<10;t++){got=waitpid(child,&status,WNOHANG);if(got==child){done=1;break;}usleep(100000);}if(!done){kill(-child,SIGKILL);do{got=waitpid(child,&status,0);}while(got<0&&errno==EINTR);}}
     /* Remove/reap any helper in the same process group before allowing report
      * writes. Refuse RW remount if the original child could not be reaped. */
+    if(!done&&got!=child)kmsg_mark(kfd,"stage=reap_child_failed");
     if(!done&&got!=child)goto wait_reset;
     kill(-child,SIGKILL);
+    kmsg_mark(kfd,"stage=reaping_helpers");
     for(;;){int helper_status;pid_t helper=waitpid(-child,&helper_status,0);if(helper>0)continue;if(helper<0&&errno==EINTR)continue;if(helper<0&&errno==ECHILD)break;goto wait_reset;}
+    snprintf(mark,sizeof(mark),"stage=reaped exit=%d signalled=%d",WIFEXITED(status)?WEXITSTATUS(status):-1,!WIFEXITED(status));
+    kmsg_mark(kfd,mark);
     printf("ui_child_exit=%d signalled=%d\n",WIFEXITED(status)?WEXITSTATUS(status):-1,!WIFEXITED(status));
 finish_log:
 #ifdef R36_UI_NAVIGATION
     if(navigation_stop())goto wait_reset;
+    kmsg_mark(kfd,"stage=nav_stopped");
 #endif
     if(childlog>=0)close(childlog);
     if(keys!=(void *)-1)shmdt((const void *)keys);
@@ -186,15 +251,18 @@ finish_log:
     /* No child is allowed to write SD during the test. Re-enable writes only
      * after all children have exited, solely to commit our bounded reports. */
     if(!mount(NULL,"/sd","vfat",MS_REMOUNT,"iocharset=iso8859-1")){
+        kmsg_mark(kfd,"stage=sd_rw");
         fd=open("/sd/cubegm/r36-own-kernel-proof.txt",O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC,0644);
         if(fd>=0){dprintf(fd,"R36 OWN KERNEL USERSPACE REACHED\nrun_id=%s\nsysname=Linux\nrelease=%s\nversion=%s\nmachine=%s\npid=1\n",id,u.release,u.version,u.machine);fsync(fd);close(fd);}
         copy_log("/tmp/ui-report.txt","/sd/cubegm/r36-ui-probe.txt");copy_log("/tmp/ui-child.txt","/sd/cubegm/r36-ui-child.txt");
 #ifdef R36_UI_NAVIGATION
         copy_log("/tmp/ui-keys.txt","/sd/cubegm/r36-ui-keys.txt");
 #endif
-    }
+        kmsg_mark(kfd,"stage=reports_written");
+    }else kmsg_mark(kfd,"stage=sd_remount_failed");
 finish_sd:
     sync();if(umount("/sd")){mount(NULL,"/sd","vfat",MS_REMOUNT|MS_RDONLY,NULL);sync();}
 wait_reset:
+    kmsg_mark(kfd,"stage=waiting_reset");
     for(;;)pause();
 }
