@@ -118,7 +118,7 @@
   и `payload/kernel_cold_ui_flip_v4` (`watchdog_seconds=90`, эмуляции 8+1 PASS).
   Следующий шаг — hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
 - Пока консоль выключена до вечера, подготовлены и верифицированы офлайн следующие
-  модули порта (`308 passed, 14 skipped`):
+  модули порта (`311 passed, 14 skipped`):
   - `scripts/peripheral_lab/usb_ffs_mtp_adb.h` + `usb_mtp_adb_service.c` +
     `test_usb_ffs_mtp_adb.py`: дескрипторы `FunctionFS` v2 для композитного `MTP + ADB`
     (`0x18d1:0x4e22`, `3 TX + 2 RX <= 5 TX + 5 RX` в `hc16xx_fifo_cfg`), полный стек
@@ -165,6 +165,16 @@
   - `scripts/peripheral_lab/audit_cubegm_runtime.py`, `prepare_otg_firmware.py`,
     `r36_session_init.c`: аудит скриптов/ядер `/cubegm` (`113` ядер), проверщик
     `/lib/firmware` для OTG Wi-Fi/BT и единый супервизор сессии `PID 1`.
+  - `scripts/kernel_lab/r36-full.dts` + `PROFILE=full` (`vm_build_kernel.sh`,
+    `start_vm_kernel_build.py --full`) + `prepare_session_initramfs.py`: единый полный
+    профиль ядра (display + audio + input + adc + pwm + otg wifi/bt), сохранение
+    громкости/яркости на SD в `r36_sysd.conf` и упаковщик статических MIPS32r2 бинарников.
+  - **Дорожная карта полного перевода консоли на Linux 7.2 (по порядку после включения):**
+    1. Trial `payload/kernel_cold_ui_flip_v4` (проверка UI и смены кадров).
+    2. Сборка `PROFILE=full` в VM и `driver_r36_combined_backend.c` `.so`.
+    3. Приёмка полного игрового цикла (`UI + игры + звук + GPIO19/15 + кнопки + подсветка + ADC`).
+    4. Приёмка `MTP + ADB` и OTG `Wi-Fi / Bluetooth` (с проверкой `/lib/firmware`).
+    5. Приёмка консольного `r36-chkdsk`, чистого выключения (`RB_POWER_OFF` / `GPIO1`) и переход на постоянную загрузку без watchdog.
 
 ## UI directional navigation v1 accepted; black-square defect open
 

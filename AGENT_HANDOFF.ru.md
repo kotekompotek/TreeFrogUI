@@ -159,7 +159,7 @@
     `cold_restore_emulation` 8/8 PASS, `cold_restore_native_fallback` 1/1 PASS).
   - **Следующее (вечером при включении консоли):** перезапустить `keepawake` и
     выполнить hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
-- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`308 passed, 14 skipped`):**
+- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`311 passed, 14 skipped`):**
   1. **USB Composite `MTP + ADB` (`FunctionFS`) (`859bcb1`, `684d3f0`):**
      `scripts/peripheral_lab/usb_ffs_mtp_adb.h`, `scripts/peripheral_lab/usb_mtp_adb_service.c`,
      `scripts/peripheral_lab/vm_build_kernel.sh` (`--enable USB_CONFIGFS_F_FS`),
@@ -255,6 +255,22 @@
         монтирование SD, `/tmp/tfdevice.env`, `r36-sysd` + `r36-legacy-keys` +
         `r36-usb-mtp-adb` + `picoarch`/`frogui_launch.txt`, чистое выключение) и сборка
         MIPS32r2 `r36-session-init.elf`.
+  11. **Единый полный профиль ядра и упаковщик `initramfs` (`aba1e29`, `2eecde6`, `c505170`):**
+      - `scripts/kernel_lab/r36-full.dts` + `PROFILE=full` в `vm_build_kernel.sh` +
+        `--full` в `start_vm_kernel_build.py` + `test_full_kernel_profile.py`:
+        единый профиль (DRM + ALSA I2S + 18-кнопочный input + SAR ADC + PWM `GPIO0`
+        подсветка + Dual-Role USB OTG Wi-Fi/BT).
+      - `scripts/peripheral_lab/r36_sysd.c`: загрузка/сохранение `volume_pct` и
+        `brightness_pct` в `/mnt/sdcard/cubegm/r36_sysd.conf` вместо SPI-NOR.
+      - `scripts/peripheral_lab/prepare_session_initramfs.py` + `test_session_initramfs.py`:
+        сборщик полного `initramfs.cpio.gz` со статическими MIPS32r2 бинарниками
+        (`/init`, `/sbin/r36-chkdsk`, `/sbin/fsck.fat`, `/sbin/r36-sysd`, `/sbin/r36-usb-mtp-adb`).
+  - **Порядок полного перевода консоли на Linux 7.2 (после включения консоли):**
+    1) Trial `kernel_cold_ui_flip_v4` (подтверждение UI и устранения чёрных квадратов);
+    2) Сборка единого `PROFILE=full` ядра в VM (`--full`) и объединённого `PICOARCH_DRIVER` `.so`;
+    3) Аппаратная приёмка звука/кнопок/подсветки/батареи и `r36-chkdsk`;
+    4) Аппаратная приёмка `MTP+ADB` и OTG `Wi-Fi`/`Bluetooth` с нужными `.bin`/`.fw`;
+    5) Проверка выключения (`GPIO1` / `RB_POWER_OFF`) и переход на постоянную загрузку без watchdog.
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 
