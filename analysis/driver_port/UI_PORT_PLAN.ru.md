@@ -1,5 +1,11 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## VM-сборка PROFILE=full и driver_r36_combined_v1.so (офлайн, без hardware)
+
+- `analysis/driver_port/driver_r36_combined_v1.so` (`sha256: 5ae91af8a61ee70d216b02467db2c763ff1cf2660ed2f92d61bc750de0595328`, 21516 Б) пересобран в QEMU build VM против `/work/console_runtime_20261115_v1/{libpthread.so.0,libc.so.6}` (`NEEDED`: `libpthread.so.0`, `libc.so.6`, `ld.so.1`; `GLIBC<=2.4`), все 7 символов (`video_driver*` + `sound_driver*`) прошли `RTLD_NOW` `dlopen` под `qemu-mipsel` (`CONSOLE_RUNTIME_DLOPEN_COMBINED=PASS`). См. `analysis/driver_port/COMBINED_DRIVER_MIPS_v1_RESULT.json`.
+- Полное ядро `PROFILE=full` (`7.2.0-rc5-r36full`) собрано в QEMU build VM и извлечено в `payload/kernel_full_vm_v1/` (gitignored): `vmlinux.bin`, `r36-lab.dtb` (после фикса порядка `#include "r36-audio.dts"` в `r36-full.dts` / `vm_build_kernel.sh`), `r36_hc16xx_drm.ko`, `r36_hc16xx_i2s.ko` и `modules.tar.gz` с 66 `.ko` модулями (Wi-Fi/BT/USB-net). См. `analysis/driver_port/FULL_KERNEL_BUILD_v1_RESULT.json`.
+- Hardware-проверка не выполнялась.
+
 ## DRM flip support verified + double-buffer backend fix (offline, без hardware)
 
 - Доказано статически по payload/display_driver_source_v4/r36_hc16xx_drm.c и

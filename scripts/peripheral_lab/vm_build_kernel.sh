@@ -102,8 +102,8 @@ if [ "${R36_AUDIO_BUILD:-0}" = 1 ]; then
     printf 'config SND_R36_EXTERNAL_DEPS\n\tbool "R36 external native PCM dependencies"\n\tdepends on SND && OF && HAS_DMA\n\tselect SND_PCM\n' > "$SRC/sound/r36-lab/Kconfig"
     grep -qxF 'source "sound/r36-lab/Kconfig"' "$SRC/sound/Kconfig" || printf '\nsource "sound/r36-lab/Kconfig"\n' >> "$SRC/sound/Kconfig"
     "$SRC/scripts/config" --file "$SRC/.config" --enable SOUND --enable SND --enable SND_R36_EXTERNAL_DEPS --enable SND_PROC_FS
-    # The native audio node stays disabled. Compiling never transfers ownership.
-    printf '\n#include "r36-audio.dts"\n' >> "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
+    # The native audio node stays disabled unless r36-lab.dts overrides it (e.g. full profile).
+    grep -qF 'r36-audio.dts' "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts" || printf '\n#include "r36-audio.dts"\n' >> "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
     cp "$ROOT/audio_driver/r36-audio.dts" "$SRC/arch/mips/boot/dts/hichip/r36-audio.dts"
 fi
 if [ "${R36_OTG_WIFI_BT:-0}" = 1 ]; then

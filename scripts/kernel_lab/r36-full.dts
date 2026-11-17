@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include "r36-display-input.dts"
+#include "r36-audio.dts"
 
 /* Unified full-system Linux 7.2 DTS for R36S (display + audio + full 18-key
  * input + SAR ADC /dev/check_adc1,5 + restart + dual-role USB0 OTG + USB1 host). */

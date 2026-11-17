@@ -1,5 +1,19 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## VM-сборка единого ядра PROFILE=full и объединённого MIPS .so завершена (офлайн, без hardware)
+
+- **Объединённый MIPS32r2 backend (`analysis/driver_port/driver_r36_combined_v1.so`, sha256 `5ae91af8a61ee70d216b02467db2c763ff1cf2660ed2f92d61bc750de0595328`, 21516 Б):**
+  собран в QEMU build VM (`mipsel-linux-gnu-gcc -O2 -fPIC -shared`) с явной привязкой к консольному runtime (`-Wl,--no-as-needed /work/console_runtime_20261115_v1/{libpthread.so.0,libc.so.6}`), `NEEDED`: `libpthread.so.0`, `libc.so.6`, `ld.so.1`; `GLIBC_2.0..2.4`; все 7 символов (`video_drivers_init`, `video_driver_disp_frame`, `video_driver_deinit`, `sound_driver_init`, `sound_driver_playframe`, `sound_driver_deinit`, `sound_driver_flush`) прошли `RTLD_NOW` `dlopen` под `qemu-mipsel` + консольный `ld.so.1` (`CONSOLE_RUNTIME_DLOPEN_COMBINED=PASS`). Отчёт: `analysis/driver_port/COMBINED_DRIVER_MIPS_v1_RESULT.json`.
+- **Единое ядро `PROFILE=full` (`7.2.0-rc5-r36full`, отчёт `analysis/driver_port/FULL_KERNEL_BUILD_v1_RESULT.json`):**
+  собрано в QEMU build VM (`Alpine LLVM20/clang20 + GNU MIPS assembler2.44`), архив `analysis/kernel_build_vm_v1/kernel-full-build.tar.gz` извлечён локально в `payload/kernel_full_vm_v1/` (gitignored):
+  - `vmlinux.bin` (`sha256: 750d849c...`, `entry: 0x80846d54`, `filesz: 9969008`, `memsz: 10333336`), `r36-lab.dtb` (`sha256: a2c7eef6...`, `dtb: 0x82e00000`), `kernel.config` (`sha256: 631f1879...`);
+  - внешние модули: `r36_hc16xx_drm.ko`, `r36_hc16xx_i2s.ko`, `r36_amprpc_poll.ko`, `r36hello.ko`;
+  - `modules.tar.gz`: **66** модулей `.ko` (Wi-Fi `cfg80211`/`mac80211`/`rtw88_*`/`mt7601u`/`rt2800usb`/`ath9k_htc`, USB-сеть `r8152`/`cdc_ether`/`rndis_host`, Bluetooth `bluetooth`/`btusb`/`btbcm`/`btintel`/`btmtk`/`btrtl`).
+- **Исправления сборки в VM и репозитории:**
+  - `scripts/kernel_lab/r36-full.dts` и `scripts/peripheral_lab/vm_build_kernel.sh`: `#include "r36-audio.dts"` перенесён до `&r36_audio { status = "okay"; };` с защитой от повторного включения в конец `r36-lab.dts`.
+  - В QEMU build VM каталог Debian glibc `/usr/lib/x86_64-linux-gnu` перенесён в `/opt/x86_64-linux-gnu`, чтобы `HOSTCC=clang`/`ld.lld` не подхватывал glibc-скрипт линковки вместо Alpine musl.
+- **Hardware-проверка не выполнялась** (консоль отключена, камера не использовалась).
+
 ## Double-buffer + synchronous DRM flip готовы офлайн; hardware не запускался
 
 - **Доказана поддержка flip в драйвере** (статически по исходнику
