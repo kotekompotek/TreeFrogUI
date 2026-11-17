@@ -32,9 +32,29 @@ def test_r36_chkdsk_kmsg_detector_safety_refusal_and_repair_lifecycle(tmp_path):
 #include <string.h>
 #include <unistd.h>
 
-static int host_open(const char *p, int flags, ...) {{ (void)flags; return open(p, flags); }}
-static int host_close(int fd) {{ return close(fd); }}
+static int host_open(const char *p, int flags, ...) {{
+    (void)flags;
+    if (!strcmp(p, "/dev/fb0")) return 90;
+    return open(p, flags);
+}}
+static int host_close(int fd) {{
+    if (fd == 90) return 0;
+    return close(fd);
+}}
 static ssize_t host_write(int fd, const void *buf, size_t count) {{ return write(fd, buf, count); }}
+
+static uint16_t mock_fb[640 * 480];
+static int fb_draws = 0;
+static void *mock_mmap(void *addr, size_t len, int prot, int flags, int fd, long off) {{
+    (void)addr; (void)prot; (void)flags; (void)off;
+    assert(fd == 90 && len == sizeof(mock_fb));
+    return mock_fb;
+}}
+static int mock_munmap(void *addr, size_t len) {{
+    assert(addr == mock_fb && len == sizeof(mock_fb));
+    fb_draws++;
+    return 0;
+}}
 
 #define R36_CHKDSK_MOCK 1
 #define R36_CHKDSK_LIBRARY_ONLY 1
@@ -96,6 +116,8 @@ static int r36_chkdsk_exec_fsck(const char *tool, const char *dev, int repair, i
 #define open    host_open
 #define close   host_close
 #define write   host_write
+#define mmap    mock_mmap
+#define munmap  mock_munmap
 #define swapoff mock_swapoff
 #define swapon  mock_swapon
 #define umount2 mock_umount2
@@ -152,6 +174,9 @@ int main(void) {{
     assert(mock_fsck_calls == 3 && mock_fsck_repair_calls == 1);
     assert(mock_wdt_paused == 0 && mock_is_mounted == 1 && mock_swap_is_active == 1);
     assert(mock_remounts >= 1 && mock_swapons >= 1);
+    assert(fb_draws >= 4);
+    assert(mock_fb[0] == 0x0260u);          /* OK green background on completion */
+    assert(mock_fb[308 * 640 + 60] == 0x07E0u); /* 100% progress bar green */
 
     /* 6. Clean pass runs check only, no repair */
     mock_fsck_calls = 0;

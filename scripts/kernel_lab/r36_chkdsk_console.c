@@ -62,7 +62,11 @@
 #endif
 #endif
 
+#ifdef R36_CHKDSK_MOCK
+#define R36_SCREEN_STATUS_MOCK 1
+#endif
 #include "r36_chkdsk_console.h"
+#include "r36_screen_status.h"
 
 struct r36_chkdsk_opts {
     const char *device;
@@ -76,6 +80,7 @@ struct r36_chkdsk_opts {
     const char *swaps_path;
     const char *kmsg_path;
     const char *tty_path;
+    const char *fb_path;
     int check_only;
     int require_kmsg_error;
     int image_mode;
@@ -101,7 +106,15 @@ static void r36_chkdsk_default_opts(struct r36_chkdsk_opts *o)
     o->swaps_path = "/proc/swaps";
     o->kmsg_path = "/dev/kmsg";
     o->tty_path = "/dev/tty0";
+    o->fb_path = "/dev/fb0";
     o->use_watchdog = 1;
+}
+
+static void r36_chkdsk_ui(const struct r36_chkdsk_opts *o, enum r36_screen_tone tone,
+                          const char *line1, const char *line2, int pct)
+{
+    if (o && o->fb_path)
+        (void)r36_screen_status_show(o->fb_path, tone, "[R36S CHKDSK]", line1, line2, pct);
 }
 
 static void r36_chkdsk_report(const struct r36_chkdsk_opts *o, const char *fmt, ...)
@@ -338,68 +351,82 @@ static enum r36_chkdsk_result r36_chkdsk_run(const struct r36_chkdsk_opts *opts)
     }
 
     r36_chkdsk_report(opts, "[R36-CHKDSK] Preparing %s check...\n", opts->device);
+    r36_chkdsk_ui(opts, R36_SCREEN_INFO, "PREPARING SD CARD CHECK...", opts->device, 10);
 
     if (!opts->image_mode) {
         had_swap = r36_chkdsk_swap_active(opts->swaps_path, opts->swapfile);
         sync();
         if (had_swap && swapoff(opts->swapfile) != 0) {
             r36_chkdsk_report(opts, "[R36-CHKDSK] REFUSED: swapoff failed (%d)\n", errno);
+            r36_chkdsk_ui(opts, R36_SCREEN_ERR, "REFUSED: SWAPOFF FAILED", "CARD STILL BUSY", 100);
             return R36_CHKDSK_REFUSED_MOUNTED;
         }
         if (opts->mountpoint && umount2(opts->mountpoint, 0) == 0)
             did_unmount = 1;
         if (!r36_chkdsk_block_offline(opts)) {
             r36_chkdsk_report(opts, "[R36-CHKDSK] REFUSED: %s still mounted or busy\n", opts->device);
+            r36_chkdsk_ui(opts, R36_SCREEN_ERR, "REFUSED: SD STILL MOUNTED", "CANNOT CHECK ONLINE", 100);
             return R36_CHKDSK_REFUSED_MOUNTED;
         }
     }
 
     r36_chkdsk_report(opts, "[R36-CHKDSK] Checking filesystem (read-only)...\n");
+    r36_chkdsk_ui(opts, R36_SCREEN_INFO, "CHECKING FILESYSTEM...", "READ-ONLY PASS", 30);
     status = r36_chkdsk_exec_fsck(opts->fsck_tool, opts->device, 0, &signalled);
     switch (r36_fat_after_check(status, signalled)) {
     case R36_FAT_BOOT:
         r36_chkdsk_report(opts, "[R36-CHKDSK] Filesystem is clean.\n");
+        r36_chkdsk_ui(opts, R36_SCREEN_OK, "FILESYSTEM IS CLEAN", "STARTING SYSTEM...", 100);
         res = R36_CHKDSK_CLEAN;
         break;
     case R36_FAT_STOP:
         r36_chkdsk_report(opts, "[R36-CHKDSK] Check aborted (status=%d sig=%d).\n", status, signalled);
+        r36_chkdsk_ui(opts, R36_SCREEN_ERR, "CHECK ABORTED", "CHECK LOGS", 100);
         res = R36_CHKDSK_CHECK_FAILED;
         break;
     case R36_FAT_REPAIR:
         if (opts->check_only) {
             r36_chkdsk_report(opts, "[R36-CHKDSK] Errors found (check-only mode).\n");
+            r36_chkdsk_ui(opts, R36_SCREEN_WARN, "ERRORS FOUND", "CHECK-ONLY MODE", 100);
             res = R36_CHKDSK_CHECK_FAILED;
             break;
         }
         if (!opts->image_mode && r36_chkdsk_snapshot(opts->device, opts->snapshot_path) != 0) {
             r36_chkdsk_report(opts, "[R36-CHKDSK] REFUSED: metadata backup failed.\n");
+            r36_chkdsk_ui(opts, R36_SCREEN_ERR, "BACKUP FAILED", "NO WRITES PERFORMED", 100);
             res = R36_CHKDSK_REPAIR_FAILED;
             break;
         }
         if (!opts->image_mode && opts->use_watchdog && r36_chkdsk_pause_watchdog() != 0) {
             r36_chkdsk_report(opts, "[R36-CHKDSK] REFUSED: watchdog pause failed.\n");
+            r36_chkdsk_ui(opts, R36_SCREEN_ERR, "WATCHDOG LOCK FAILED", "NO WRITES PERFORMED", 100);
             res = R36_CHKDSK_REPAIR_FAILED;
             break;
         }
         r36_chkdsk_report(opts, "[R36-CHKDSK] Repairing filesystem...\n");
+        r36_chkdsk_ui(opts, R36_SCREEN_WARN, "REPAIRING FILESYSTEM...", "DO NOT POWER OFF!", 65);
         status = r36_chkdsk_exec_fsck(opts->fsck_tool, opts->device, 1, &signalled);
         sync();
         if (!r36_fat_repair_may_verify(status, signalled)) {
             r36_chkdsk_report(opts, "[R36-CHKDSK] Repair failed (status=%d sig=%d).\n", status, signalled);
+            r36_chkdsk_ui(opts, R36_SCREEN_ERR, "REPAIR FAILED", "RECOVERY NEEDED", 100);
             if (!opts->image_mode && opts->use_watchdog)
                 r36_chkdsk_resume_watchdog();
             res = R36_CHKDSK_REPAIR_FAILED;
             break;
         }
         r36_chkdsk_report(opts, "[R36-CHKDSK] Verifying repaired filesystem...\n");
+        r36_chkdsk_ui(opts, R36_SCREEN_INFO, "VERIFYING REPAIR...", "FINAL PASS", 90);
         status = r36_chkdsk_exec_fsck(opts->fsck_tool, opts->device, 0, &signalled);
         if (!opts->image_mode && opts->use_watchdog)
             r36_chkdsk_resume_watchdog();
         if (r36_fat_verified(status, signalled)) {
             r36_chkdsk_report(opts, "[R36-CHKDSK] Repair verified OK.\n");
+            r36_chkdsk_ui(opts, R36_SCREEN_OK, "REPAIR VERIFIED OK", "RESUMING SYSTEM...", 100);
             res = R36_CHKDSK_REPAIRED_VERIFIED;
         } else {
             r36_chkdsk_report(opts, "[R36-CHKDSK] Verification failed.\n");
+            r36_chkdsk_ui(opts, R36_SCREEN_ERR, "VERIFY FAILED", "CHECK SD CARD", 100);
             res = R36_CHKDSK_VERIFY_FAILED;
         }
         break;
