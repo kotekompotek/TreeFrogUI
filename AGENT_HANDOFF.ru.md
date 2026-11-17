@@ -159,7 +159,7 @@
     `cold_restore_emulation` 8/8 PASS, `cold_restore_native_fallback` 1/1 PASS).
   - **Следующее (вечером при включении консоли):** перезапустить `keepawake` и
     выполнить hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
-- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`303 passed, 14 skipped`):**
+- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`308 passed, 14 skipped`):**
   1. **USB Composite `MTP + ADB` (`FunctionFS`) (`859bcb1`, `684d3f0`):**
      `scripts/peripheral_lab/usb_ffs_mtp_adb.h`, `scripts/peripheral_lab/usb_mtp_adb_service.c`,
      `scripts/peripheral_lab/vm_build_kernel.sh` (`--enable USB_CONFIGFS_F_FS`),
@@ -233,15 +233,28 @@
      `/sys/class/backlight/backlight/brightness` и чистое выключение (`mute PA`,
      подсветка `0`, `sync`, `swapoff`, `umount`, `reboot(RB_POWER_OFF)`). Проверен
      C-тестом и сборкой статического MIPS32r2 `r36-sysd.elf`.
-  9. **Консольный «Чек-диск» (`r36_chkdsk_console`) (`90d689f`):**
+  9. **Консольный «Чек-диск» (`r36_chkdsk_console`) и экранный UI (`90d689f`, `ae94c92`):**
      `scripts/kernel_lab/r36_chkdsk_console.h`, `scripts/kernel_lab/r36_chkdsk_console.c`,
+     `scripts/kernel_lab/r36_screen_status.h`,
      `scripts/kernel_lab/tests/test_r36_chkdsk_console.py`.
      Добавлен детектор ошибок ФС/носителя в `/dev/kmsg` (`Volume was not properly unmounted`,
-     `FAT-fs`/`exFAT-fs`/`EXT4-fs` error, `Buffer I/O error`) и безопасный цикл ремонта с
-     консоли: `swapoff`, `umount2("/mnt/sdcard")`, строгая проверка `block_is_offline`
-     (отказ при занятой карте), снимок 8 МиБ метаданных, пауза watchdog, ремонт
-     `r36-fsck-cp437-v2 -c 437 -a -f`, независимая проверка `-n`, возобновление watchdog
-     и обратное монтирование. Проверен C-тестом и сборкой MIPS32r2 `r36-chkdsk.elf`.
+     `FAT-fs`/`exFAT-fs`/`EXT4-fs` error, `Buffer I/O error`), экранный RGB565 статус-вывод
+     на `/dev/fb0` (встроенный шрифт `5x7` 2x/3x и прогресс-бар `0..100%`) и безопасный
+     цикл ремонта с консоли: `swapoff`, `umount2("/mnt/sdcard")`, строгая проверка
+     `block_is_offline` (отказ при занятой карте), снимок 8 МиБ метаданных, пауза watchdog,
+     ремонт `r36-fsck-cp437-v2 -c 437 -a -f`, независимая проверка `-n`, возобновление
+     watchdog и обратное монтирование. Проверен C-тестом и сборкой MIPS32r2 `r36-chkdsk.elf`.
+  10. **Аудит запуска `/cubegm`, карта `/lib/firmware` OTG и супервизор `r36_session_init` (`241c466`, `c5ec0fd` + текущий юнит):**
+      - `scripts/peripheral_lab/audit_cubegm_elf_deps.py` + `audit_cubegm_runtime.py`:
+        по бэкапу `/cubegm` (`155` ELF, `23/23` `DT_NEEDED` найдены, `17` скриптов, `113`
+        ядер) подтверждены `/tmp/tfdevice.env`, `PICOARCH_DRIVER` и `frogui_launch.txt`.
+      - `scripts/peripheral_lab/prepare_otg_firmware.py` + `test_otg_firmware_inventory.py`:
+        карта и проверщик `/lib/firmware` для всех Wi-Fi/BT чипсетов из `vm_build_kernel.sh`.
+      - `scripts/peripheral_lab/r36_session_init.c` + `test_r36_session_init.py`:
+        полный супервизор сессии `PID 1` (резервирование `fd 0..2`, pre-mount `r36-chkdsk`,
+        монтирование SD, `/tmp/tfdevice.env`, `r36-sysd` + `r36-legacy-keys` +
+        `r36-usb-mtp-adb` + `picoarch`/`frogui_launch.txt`, чистое выключение) и сборка
+        MIPS32r2 `r36-session-init.elf`.
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 
