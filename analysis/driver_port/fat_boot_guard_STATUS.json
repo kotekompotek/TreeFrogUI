@@ -6,6 +6,9 @@
   "hardware_verified": false,
   "patched_fsck": "analysis/driver_port/r36-fsck-cp437-v2",
   "fsck_sha256": "7333e996a1f8a6507859ec700e3b48fb28c7a6cd54cda4e673f12a73dd5a90c2",
+  "console_chkdsk_tool": "scripts/kernel_lab/r36_chkdsk_console.c",
+  "console_chkdsk_test": "scripts/kernel_lab/tests/test_r36_chkdsk_console.py",
+  "console_chkdsk_offline_verified": true,
   "validated": [
     "static MIPS32r2 binary and autonomous CP437",
     "255 CP437 bytes roundtrip and wchar buffer bounds",

@@ -118,7 +118,7 @@
   и `payload/kernel_cold_ui_flip_v4` (`watchdog_seconds=90`, эмуляции 8+1 PASS).
   Следующий шаг — hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
 - Пока консоль выключена до вечера, подготовлены и верифицированы офлайн следующие
-  модули порта (`299 passed, 14 skipped`):
+  модули порта (`303 passed, 14 skipped`):
   - `scripts/peripheral_lab/usb_ffs_mtp_adb.h` + `usb_mtp_adb_service.c` +
     `test_usb_ffs_mtp_adb.py`: дескрипторы `FunctionFS` v2 для композитного `MTP + ADB`
     (`0x18d1:0x4e22`, `3 TX + 2 RX <= 5 TX + 5 RX` в `hc16xx_fifo_cfg`), полный стек
@@ -152,7 +152,15 @@
     `hc16xx` MUSB для Host/OTG (`USB_O_UTMI` byte R/W, `role_mode`, `MUSB_DEVCTL_SESSION`,
     `pdata.mode` из `dr_mode`), конфиг модулей Wi-Fi/BT (`CFG80211`/`MAC80211`/`RTL8XXXU`/
     `RTW88`/`MT7601U`/`BT_HCIBTUSB`) и userspace-зонд ролей / `READ_BD_ADDR` / `wlan0`;
-    при наличии консоли и OTG-адаптера потребуется сборка ядра с модулями и live-проверка.
+  - `scripts/peripheral_lab/audit_cubegm_elf_deps.py` + `test_cubegm_deps_audit.py`:
+    проверены 155 ELF в бэкапе `/cubegm` (`23/23` `DT_NEEDED` библиотек найдены локально).
+  - `scripts/peripheral_lab/r36_sysd.c` + `test_r36_sysd.py`: единый системный демон
+    (кнопки, PA `GPIO19`/`GPIO15`, подсветка `/sys/class/backlight`, батарея ADC и
+    чистое выключение `swapoff`/`umount`/`RB_POWER_OFF`) + MIPS32r2 ELF.
+  - `scripts/kernel_lab/r36_chkdsk_console.c` + `r36_chkdsk_console.h` +
+    `scripts/kernel_lab/tests/test_r36_chkdsk_console.py`: консольный «чек-диск»
+    с детектором ошибок ФС/носителя в `/dev/kmsg` (`--if-kernel-error`), безопасным
+    `swapoff` + `umount2`, снимком метаданных, ремонтом `r36-fsck-cp437-v2` и проверкой.
 
 ## UI directional navigation v1 accepted; black-square defect open
 

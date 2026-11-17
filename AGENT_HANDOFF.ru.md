@@ -159,7 +159,7 @@
     `cold_restore_emulation` 8/8 PASS, `cold_restore_native_fallback` 1/1 PASS).
   - **Следующее (вечером при включении консоли):** перезапустить `keepawake` и
     выполнить hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
-- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`299 passed, 14 skipped`):**
+- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`303 passed, 14 skipped`):**
   1. **USB Composite `MTP + ADB` (`FunctionFS`) (`859bcb1`, `684d3f0`):**
      `scripts/peripheral_lab/usb_ffs_mtp_adb.h`, `scripts/peripheral_lab/usb_mtp_adb_service.c`,
      `scripts/peripheral_lab/vm_build_kernel.sh` (`--enable USB_CONFIGFS_F_FS`),
@@ -219,7 +219,29 @@
      и `BT`/`BT_HCIBTUSB*` (`modules.tar.gz`) и userspace-зонд (`r36_otg_set_role`,
      классификация, HCI `READ_BD_ADDR`, `wlan0` sysfs + `IFF_UP`); C-модель glue и зонд PASS.
      Вечером на реальной консоли нужна аппаратная проверка: пересборка OTG-ядра с
-     модулями (`R36_OTG_WIFI_BT=1`) и живой тест с OTG-адаптером Wi-Fi / Bluetooth.
+     модулями (`R36_OTG_WIFI_BT=1` через `start_vm_kernel_build.py --usb-probe --otg-wifi-bt`,
+     сейчас SSH в VM из текущей сессии заблокирован ACL `id_ed25519` SYSTEM-only) и живой тест с OTG-адаптером Wi-Fi / Bluetooth.
+  7. **Аудит зависимостей `/cubegm` (`26ea02a`):**
+     `scripts/peripheral_lab/audit_cubegm_elf_deps.py` + `test_cubegm_deps_audit.py`.
+     Проверено `155` ELF-бинарников в `analysis/boot_crypto/backups/20261116T161658Z_cubegm`
+     (`picoarch`, `frogui_libretro.so`, `tfmtp`, `usr/bin/*`, `cores/*`): `23` уникальных
+     `DT_NEEDED`, `missing_from_local_snapshots = []` (все библиотеки присутствуют локально).
+  8. **Единый системный демон периферии `r36_sysd` (`9269088`):**
+     `scripts/peripheral_lab/r36_sysd.c` + `test_r36_sysd.py`.
+     Объединяет `direct_keys_policy.h` (`FN+VOL+/-`, `POWER`, `GPIO19`/`GPIO15`),
+     `adc_battery_osd.h` (`/dev/check_adc1` и `/dev/check_adc5`), масштабирование подсветки
+     `/sys/class/backlight/backlight/brightness` и чистое выключение (`mute PA`,
+     подсветка `0`, `sync`, `swapoff`, `umount`, `reboot(RB_POWER_OFF)`). Проверен
+     C-тестом и сборкой статического MIPS32r2 `r36-sysd.elf`.
+  9. **Консольный «Чек-диск» (`r36_chkdsk_console`) (`90d689f`):**
+     `scripts/kernel_lab/r36_chkdsk_console.h`, `scripts/kernel_lab/r36_chkdsk_console.c`,
+     `scripts/kernel_lab/tests/test_r36_chkdsk_console.py`.
+     Добавлен детектор ошибок ФС/носителя в `/dev/kmsg` (`Volume was not properly unmounted`,
+     `FAT-fs`/`exFAT-fs`/`EXT4-fs` error, `Buffer I/O error`) и безопасный цикл ремонта с
+     консоли: `swapoff`, `umount2("/mnt/sdcard")`, строгая проверка `block_is_offline`
+     (отказ при занятой карте), снимок 8 МиБ метаданных, пауза watchdog, ремонт
+     `r36-fsck-cp437-v2 -c 437 -a -f`, независимая проверка `-n`, возобновление watchdog
+     и обратное монтирование. Проверен C-тестом и сборкой MIPS32r2 `r36-chkdsk.elf`.
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 
