@@ -157,7 +157,30 @@
     `init_sha256 b8f5fa39...`, `kernel_sha256 60e24b80...`) и cold-кандидат
     `payload/kernel_cold_ui_flip_v4` (`watchdog_seconds=90`, `sha256` проверен,
     `cold_restore_emulation` 8/8 PASS, `cold_restore_native_fallback` 1/1 PASS).
-  - **Следующее:** hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
+  - **Следующее (вечером при включении консоли):** перезапустить `keepawake` и
+    выполнить hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
+- **Выполнены 3 офлайн-юнита для следующих этапов порта (`290 passed, 14 skipped`):**
+  1. **USB Composite `MTP + ADB` (`FunctionFS`) (`00c1792`):**
+     `scripts/peripheral_lab/usb_ffs_mtp_adb.h` + `test_usb_ffs_mtp_adb.py`.
+     Проверен бюджет endpoint'ов `drivers/usb/musb/hc16xx.c` (`3 TX + 2 RX <= 5 TX + 5 RX`
+     при штатном `VID 0x18d1 / PID 0x4e22`), сформированы `FunctionFS` v2 дескрипторы
+     для `ffs.mtp` (FS/HS + MS OS `"MTP"`) и `ffs.adb` (`0xFF/0x42/0x01`),
+     userspace-отправка `r36_mtp_ffs_send_file_with_header` для переноса `tfmtp`
+     без `usb_f_mtp.ko`, и конечный автомат протокола `ADB` (`CNXN/OPEN/WRTE/OKAY/CLSE`).
+  2. **12-кнопочный игровой ввод (`legacy_keys -> SysV -> libretro`) (`398a711`):**
+     `scripts/peripheral_lab/prepare_ui_gameplay_input.py` + `test_ui_gameplay_input.py`.
+     Строгая сверка всех 12 игровых кнопок (`UP/RIGHT/DOWN/LEFT/A/B/X/Y/START/SELECT/L1/R1`)
+     против `INPUT_PHYSICAL_v3_RESULT.json`, исключение системных кнопок
+     (`FN/VOL+/VOL-/POWER/L2/R2`), сквозной C-тест `load_mapping` + `r36_key_event` +
+     `r36_legacy_to_libretro` на реальных кодах `704..715` и сборка полного MIPS-бриджа.
+  3. **ALSA аудио-бэкенд `sound_driver_*` для `picoarch`:**
+     `scripts/peripheral_lab/audio_alsa_backend.c` + `test_audio_alsa_backend.py`.
+     По дизассемблеру `picoarch` (`0x42c2a0..0x42cf88`) и `driver_gb350.so`
+     подтверждено, что `picoarch` загружает `sound_driver_init`,
+     `sound_driver_playframe`, `sound_driver_deinit` из `PICOARCH_DRIVER` и
+     делает двойной прогрев `init(NULL, 48000, 2) -> deinit() -> init(NULL, 48000, 2)`
+     перед подачей блоков по 480 фреймов (10 мс). Реализован и проверен на C-модели
+     и MIPS-сборке бэкенд под 12-словный UAPI `r36_hc16xx_i2s`.
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 

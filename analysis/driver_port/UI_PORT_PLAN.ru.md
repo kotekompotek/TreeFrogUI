@@ -117,6 +117,19 @@
   Собраны и проверены офлайн `payload/kernel_ui_flip_v4` (`initramfs 34521 <= 34768`)
   и `payload/kernel_cold_ui_flip_v4` (`watchdog_seconds=90`, эмуляции 8+1 PASS).
   Следующий шаг — hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
+- Пока консоль выключена до вечера, подготовлены и верифицированы офлайн три
+  следующих модуля порта (`290 passed, 14 skipped`):
+  - `scripts/peripheral_lab/usb_ffs_mtp_adb.h` + `test_usb_ffs_mtp_adb.py`:
+    дескрипторы `FunctionFS` v2 для композитного `MTP + ADB` (`0x18d1:0x4e22`,
+    `3 TX + 2 RX <= 5 TX + 5 RX` в `hc16xx_fifo_cfg`), потоковая отправка файлов
+    для `tfmtp` без ядерного `usb_f_mtp.ko` и конечный автомат пакетов `ADB`.
+  - `scripts/peripheral_lab/prepare_ui_gameplay_input.py` + `test_ui_gameplay_input.py`:
+    валидатор полной 12-кнопочной игровой карты из `INPUT_PHYSICAL_v3_RESULT.json`
+    и сквозной тест `legacy_keys -> SysV -> r36_legacy_to_libretro` + MIPS-сборка.
+  - `scripts/peripheral_lab/audio_alsa_backend.c` + `test_audio_alsa_backend.py`:
+    ALSA-реализация `sound_driver_init`/`sound_driver_playframe`/`sound_driver_deinit`/
+    `sound_driver_flush` под проверенный 12-словный UAPI `r36_hc16xx_i2s` с учётом
+    двойного прогрева `init -> deinit -> init` в `picoarch` (`0x42ce80..0x42cfb8`).
 
 ## UI directional navigation v1 accepted; black-square defect open
 

@@ -11,6 +11,30 @@ stock/MTP,6 hashes исходные до host cleanup, host_cleanup_wrote_boot_f
 Следующие открытые пункты —4..7: amplifier/headphone policy, короткий слышимый
 сигнал/локальный микрофон и настоящий backend picoarch. Silent DMA не audible PASS.
 
+## Офлайн-подготовка ALSA-бэкенда `picoarch` (`sound_driver_*`) 2026-11-17
+
+- Статическим дизассемблированием `picoarch` (`0x42c2a0..0x42cf88`) и `driver_gb350.so`
+  (`0x8b60..0x8de8`) подтверждён точный контракт вызовов аудио-загрузчика:
+  - `picoarch` читает `getenv("PICOARCH_DRIVER")` (`0x42c4e4`) также для аудио и
+    резолвит `sound_driver_init(void *dev, int rate, int channels)`,
+    `sound_driver_playframe(const void *buf, int frames)`, `sound_driver_deinit(void)`
+    (и опциональный `sound_driver_flush(void)`).
+  - При старте потока (`0x42ce80..0x42cfb8`) `picoarch` обязательно выполняет
+    прогревочный цикл `sound_driver_init(NULL, 48000, 2) -> sound_driver_deinit() ->
+    usleep(100000) -> sound_driver_init(NULL, 48000, 2)` и только после второго
+    успешного `init` входит в рабочий цикл `sound_driver_playframe(buf, 480)`
+    (блоки по 480 стерео-фреймов `S16_LE` = 10 мс при 48 кГц).
+- Реализован `scripts/peripheral_lab/audio_alsa_backend.c` поверх проверенного
+  12-словного UAPI `r36_hc16xx_i2s` (`/dev/snd/pcmC0D0p`, проверка `info.id == "I2S"`,
+  `48000 Hz`, `S16_LE`, стерео, `period=512`, `buffer=4096`), с идемпотентным
+  повторным `init -> deinit -> init`, восстановлением после `EPIPE`/`ESTRPIPE`
+  через `SNDRV_PCM_IOCTL_PREPARE`, обработкой `EAGAIN` и конвертацией частоты/моно
+  при вызове не-48kHz источником.
+- Добавлен `scripts/peripheral_lab/test_audio_alsa_backend.py` (C-модель ioctl +
+  кросс-компиляция `zig cc -target mipsel-linux.4.4-musleabi -Werror`): PASS.
+  Аппаратная приёмка слышимого звука и `GPIO19`/`GPIO15` остаётся отдельной задачей
+  после включения консоли.
+
 Ниже — первоначальный план, его статусы на2026-11-14 исторические.
 
 Статус 2026-11-14: пользователь временно не может подключить консоль и просит
