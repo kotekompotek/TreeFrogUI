@@ -28,6 +28,10 @@ def test_otg_wifi_bt_dts_and_build_config():
     ):
         assert token in build, token
 
+    starter = (ROOT / "scripts/peripheral_lab/start_vm_kernel_build.py").read_text()
+    assert "--otg-wifi-bt" in starter
+    assert "R36_OTG_WIFI_BT=" in starter
+
 
 def test_otg_role_bt_hci_and_wifi_sysfs_c_harness(tmp_path):
     hdr = ROOT / "scripts/peripheral_lab/usb_otg_wifi_bt_probe.h"

@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--init", type=Path)
     parser.add_argument("--usb-probe", action="store_true", help="isolated USB0 CDC/PIO build without display/audio/input")
     parser.add_argument("--input-probe", action="store_true", help="include isolated polled key nodes in display build")
+    parser.add_argument("--otg-wifi-bt", action="store_true", help="enable USB dual-role OTG, Wi-Fi (802.11) and Bluetooth (btusb) modules")
     args = parser.parse_args()
     if args.input_probe and not args.display_source:
         parser.error("--input-probe requires --display-source")
@@ -62,10 +63,10 @@ def main():
     command = ("if test -f /work/kernel-build.pid && kill -0 $(cat /work/kernel-build.pid) 2>/dev/null; then exit 9; fi; "
                "date -u -s '@" + str(int(time.time())) + "' >/dev/null || exit 10; "
                "mkdir -p /work/project; tar -xzf /work/project-build.tar.gz -C /work/project; rm -f /work/kernel-build.exit; "
-               "nohup env R36_BUILD_PROFILE=" + kind + " R36_INPUT_PROBE=" + str(int(args.input_probe)) + " R36_AUDIO_BUILD=" + str(int(bool(args.audio_source))) + " bash /work/project/scripts/peripheral_lab/vm_build_kernel.sh > /work/kernel-build.log 2>&1 < /dev/null & "
+               "nohup env R36_BUILD_PROFILE=" + kind + " R36_INPUT_PROBE=" + str(int(args.input_probe)) + " R36_AUDIO_BUILD=" + str(int(bool(args.audio_source))) + " R36_OTG_WIFI_BT=" + str(int(args.otg_wifi_bt)) + " bash /work/project/scripts/peripheral_lab/vm_build_kernel.sh > /work/kernel-build.log 2>&1 < /dev/null & "
                "echo $! > /work/kernel-build.pid; cat /work/kernel-build.pid")
     reply = subprocess.check_output(["ssh", "-p", "22222", *options, "root@127.0.0.1", command])
-    record = {"started": True, "kind": kind, "input_probe": args.input_probe, "audio_module_build": bool(args.audio_source), "init_sha256": hashlib.sha256(init.read_bytes()).hexdigest(),
+    record = {"started": True, "kind": kind, "input_probe": args.input_probe, "audio_module_build": bool(args.audio_source), "otg_wifi_bt": args.otg_wifi_bt, "init_sha256": hashlib.sha256(init.read_bytes()).hexdigest(),
               "guest_pid": int(reply.strip()), "archive": str(archive),
               "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(), "sources": sources,
               "kernel_revision": "da5f1a22ef2ff5c46aa3f750fa10825813970b09", "compiler": "Alpine LLVM20/clang20 + GNU MIPS assembler2.44",
