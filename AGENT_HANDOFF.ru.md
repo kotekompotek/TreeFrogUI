@@ -1,5 +1,17 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Аппаратный trial единого ядра PROFILE=full (`kernel_cold_full_v1`) — PASS
+
+- **Компактная `-Os` сборка (`payload/kernel_full_vm_v3`, `7.2.0-rc5-r36full #24`):**
+  - В `scripts/peripheral_lab/vm_build_kernel.sh` для `PROFILE=full` включён `CONFIG_CC_OPTIMIZE_FOR_SIZE=y` (`-Os`), отключены `KALLSYMS`/`IKCONFIG`, а `HID`/`USB_HID`/`UHID`/`HID_GENERIC`/`RFKILL` переведены в модули (`=m`).
+  - `vmlinux.bin` (`9 030 752` Б) + `r36-lab.dtb` (`6 906` Б) в `gzip -9` = `3 725 249` Б (укладывается в лимит слота `advapi32.dll` `3 954 219` Б).
+  - Офлайн-эмуляция `payload/kernel_cold_full_v1`: `cold_restore_emulation` (`8/8` кейсов `PASS`, `reached: ["kernel_entry", "start_kernel"]`) и `cold_restore_native_fallback` (`PASS`).
+- **Реальный запуск на R36S (`analysis/boot_crypto/kernel_cold_full_v1_trial.json`):**
+  - `cold_boot_verified=true`, `native_restore_verified=true`, `stock_restored=true`, `stage=6` (`PID1 userspace reached`, `entry=0x80773e34`, `run_id=274793afc3ea4ab5bf3f9c5e93b99715`).
+  - В `kernel.log` подтверждена инициализация: `hc16xx-gpio` (`128` GPIOs), **оба** USB-контроллера (`musb-hdrc.0.auto` -> `usb1`/`hub 1-0:1.0` и `musb-hdrc.1.auto` -> `usb2`/`hub 2-0:1.0`), оба ввода (`r36-direct-keys` = `input0`, `r36-serial-keys` = `input1`), и `display_inspection=PASS` (`timing_match=1`, `raster_progress=1`).
+  - **На стоковой консоли** сейчас включён `disable_sleep=on` + `nosleep`, запущен `r36_keepawake.sh start`, а в `/mnt/sdcard/cubegm/r36_sysd.conf` временно записаны `screen_off_sec=0` и `auto_poweroff_sec=0` (потом включим обратно).
+  - **WSL (`ubmips`, Ubuntu 22.04, 8 ядер)** подготовлен к будущим быстрым сборкам: установлены `clang-15`, `lld-15`, `llvm-15`, `curl`, `rsync`, `cpio` (в дополнение к `mipsel-linux-gnu-gcc`/`as`, `make`, `bison`, `flex`, `bc`, `libssl-dev`, `libelf-dev`), кросс-компиляция MIPS проверена (`WSL_READY`).
+
 ## VM-сборка единого ядра PROFILE=full и объединённого MIPS .so завершена (офлайн, без hardware)
 
 - **Объединённый MIPS32r2 backend (`analysis/driver_port/driver_r36_combined_v1.so`, sha256 `5ae91af8a61ee70d216b02467db2c763ff1cf2660ed2f92d61bc750de0595328`, 21516 Б):**

@@ -296,6 +296,8 @@
     "full_profile_dts": "scripts/kernel_lab/r36-full.dts",
     "full_profile_test": "scripts/peripheral_lab/test_full_kernel_profile.py",
     "full_kernel_vm_build_result": "analysis/driver_port/FULL_KERNEL_BUILD_v1_RESULT.json",
+    "full_kernel_hardware_trial": "analysis/boot_crypto/kernel_cold_full_v1_trial.json",
+    "full_kernel_cold_boot_verified": true,
     "full_kernel_release": "7.2.0-rc5-r36full",
     "full_kernel_ko_count": 66,
     "combined_driver_mips_result": "analysis/driver_port/COMBINED_DRIVER_MIPS_v1_RESULT.json",

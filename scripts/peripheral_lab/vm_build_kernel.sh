@@ -75,7 +75,9 @@ fi
 if [ "$PROFILE" = full ]; then
     "$SRC/scripts/config" --file "$SRC/.config" --set-str LOCALVERSION -r36full \
         --enable IIO --enable PWM --enable PWM_HC16XX \
-        --enable BACKLIGHT_CLASS_DEVICE --enable BACKLIGHT_PWM
+        --enable BACKLIGHT_CLASS_DEVICE --enable BACKLIGHT_PWM \
+        --disable KALLSYMS --disable IKCONFIG --disable IKCONFIG_PROC \
+        --disable CC_OPTIMIZE_FOR_PERFORMANCE --enable CC_OPTIMIZE_FOR_SIZE
 fi
 if [ "$PROFILE" = usb ]; then
     "$SRC/scripts/config" --file "$SRC/.config" --set-str LOCALVERSION -r36usb \
@@ -114,9 +116,9 @@ if [ "${R36_OTG_WIFI_BT:-0}" = 1 ]; then
         --enable USB_ROLE_SWITCH --enable MUSB_PIO_ONLY --enable PHY_HICHIP_USB --enable NOP_USB_XCEIV \
         --enable USB_ANNOUNCE_NEW_DEVICES \
         --enable USB_GADGET --enable USB_CONFIGFS --enable USB_CONFIGFS_F_FS --enable USB_CONFIGFS_ACM \
-        --enable HID_SUPPORT --enable HID --enable USB_HID --enable UHID --enable HID_GENERIC \
+        --enable HID_SUPPORT --module HID --module USB_HID --module UHID --module HID_GENERIC \
         --enable NET --enable PACKET --enable UNIX --enable INET --enable NETDEVICES \
-        --enable WIRELESS --enable WLAN --enable FW_LOADER --enable RFKILL \
+        --enable WIRELESS --enable WLAN --enable FW_LOADER --module RFKILL \
         --module CFG80211 --module MAC80211 \
         --enable WLAN_VENDOR_REALTEK --module RTL8XXXU --enable RTL8XXXU_UNTESTED \
         --module RTW88 --module RTW88_USB --module RTW88_8821CU --module RTW88_8822BU --module RTW88_8723DU \

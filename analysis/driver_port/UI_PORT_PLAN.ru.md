@@ -1,5 +1,10 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## Аппаратный cold trial единого ядра PROFILE=full (`kernel_cold_full_v1`) — PASS
+
+- После перевода `PROFILE=full` на `CONFIG_CC_OPTIMIZE_FOR_SIZE=y` (`-Os`) и модульных `HID`/`RFKILL` образ `vmlinux.bin + r36-lab.dtb` (`3 725 249` Б в `gzip -9`) прошёл эмуляцию (`8/8` + `native_fallback`) и реальный холодный запуск на R36S (`analysis/boot_crypto/kernel_cold_full_v1_trial.json`): `cold_boot_verified=true`, `native_restore_verified=true`, `stock_restored=true`, `7.2.0-rc5-r36full #24`, `usb1` + `usb2` MUSB hubs, `r36-direct-keys` (`input0`) + `r36-serial-keys` (`input1`), `display_inspection=PASS`.
+- WSL (`ubmips`, Ubuntu 22.04, 8 ядер) подготовлен (`clang-15`, `lld-15`, `llvm-15`, `curl`, `rsync`, `cpio`) для быстрых последующих сборок.
+
 ## VM-сборка PROFILE=full и driver_r36_combined_v1.so (офлайн, без hardware)
 
 - `analysis/driver_port/driver_r36_combined_v1.so` (`sha256: 5ae91af8a61ee70d216b02467db2c763ff1cf2660ed2f92d61bc750de0595328`, 21516 Б) пересобран в QEMU build VM против `/work/console_runtime_20261115_v1/{libpthread.so.0,libc.so.6}` (`NEEDED`: `libpthread.so.0`, `libc.so.6`, `ld.so.1`; `GLIBC<=2.4`), все 7 символов (`video_driver*` + `sound_driver*`) прошли `RTLD_NOW` `dlopen` под `qemu-mipsel` (`CONSOLE_RUNTIME_DLOPEN_COMBINED=PASS`). См. `analysis/driver_port/COMBINED_DRIVER_MIPS_v1_RESULT.json`.
