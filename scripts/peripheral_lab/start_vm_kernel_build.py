@@ -21,12 +21,15 @@ def main():
     parser.add_argument("--usb-probe", action="store_true", help="isolated USB0 CDC/PIO build without display/audio/input")
     parser.add_argument("--input-probe", action="store_true", help="include isolated polled key nodes in display build")
     parser.add_argument("--otg-wifi-bt", action="store_true", help="enable USB dual-role OTG, Wi-Fi (802.11) and Bluetooth (btusb) modules")
+    parser.add_argument("--full", action="store_true", help="build unified Linux 7.2 profile (display + audio + full input + adc + pwm + otg wifi/bt)")
     args = parser.parse_args()
-    if args.input_probe and not args.display_source:
-        parser.error("--input-probe requires --display-source")
-    if args.usb_probe and (args.display_source or args.audio_source or args.input_probe):
+    if args.input_probe and not (args.display_source or args.full):
+        parser.error("--input-probe requires --display-source or --full")
+    if args.full and (not args.display_source or not args.audio_source):
+        parser.error("--full requires --display-source and --audio-source")
+    if args.usb_probe and (args.display_source or args.audio_source or args.input_probe or args.full):
         parser.error("USB diagnostic must be isolated from display/audio/input candidates")
-    kind = "usb" if args.usb_probe else "display" if args.display_source else "avp"
+    kind = "full" if args.full else "usb" if args.usb_probe else "display" if args.display_source else "avp"
     init = args.init or ROOT / ("analysis/driver_port/r36-usb-cdc-init-v1" if args.usb_probe else "analysis/driver_port/r36-display-probe" if args.display_source else "analysis/driver_port/r36-avp-probe")
     assert init.is_file()
     if args.display_source:

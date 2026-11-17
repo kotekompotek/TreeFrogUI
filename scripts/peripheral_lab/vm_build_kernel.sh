@@ -4,7 +4,7 @@ ROOT=/work/project
 REV=da5f1a22ef2ff5c46aa3f750fa10825813970b09
 SRC=/work/linux-hichip-$REV
 PROFILE=${R36_BUILD_PROFILE:-avp}
-case "$PROFILE" in avp|display|usb) ;; *) exit 22 ;; esac
+case "$PROFILE" in avp|display|usb|full) ;; *) exit 22 ;; esac
 OUT=/work/kernel-$PROFILE-build
 status=/work/kernel-build.exit
 trap 'code=$?; printf "%s\n" "$code" > "$status"; sync' EXIT
@@ -49,11 +49,20 @@ if [ "$PROFILE" = display ]; then
         cp "$ROOT/scripts/kernel_lab/r36-display-input.dts" "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
     fi
 fi
+if [ "$PROFILE" = full ]; then
+    cp "$ROOT/scripts/kernel_lab/r36-avp-poll.dts" "$SRC/arch/mips/boot/dts/hichip/r36-avp-poll.dts"
+    cp "$ROOT/display_driver/r36-display.dts" "$SRC/arch/mips/boot/dts/hichip/r36-display.dts"
+    cp "$ROOT/scripts/kernel_lab/r36-display-input.dts" "$SRC/arch/mips/boot/dts/hichip/r36-display-input.dts"
+    cp "$ROOT/scripts/kernel_lab/r36-full.dts" "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
+    R36_INPUT_PROBE=1
+    R36_AUDIO_BUILD=1
+    R36_OTG_WIFI_BT=1
+fi
 printf 'dir /dev 0755 0 0\ndir /proc 0755 0 0\ndir /sys 0755 0 0\ndir /sd 0755 0 0\ndir /tmp 1777 0 0\nfile /init %s/init.elf 0755 0 0\nnod /dev/console 0600 0 0 c 5 1\n' "$ROOT" > "$ROOT/initramfs.list"
 "$SRC/scripts/config" --file "$SRC/.config" --set-str LOCALVERSION -r36port \
     --disable LOCALVERSION_AUTO --set-str INITRAMFS_SOURCE "$ROOT/initramfs.list" \
     --enable SYSVIPC --enable SYSVIPC_SYSCTL --disable DEBUG_INFO_BTF --disable WERROR
-if [ "$PROFILE" = display ]; then
+if [ "$PROFILE" = display ] || [ "$PROFILE" = full ]; then
     mkdir -p "$SRC/drivers/gpu/drm/r36_hc16xx"
     cp "$ROOT/display_driver/Kconfig" "$SRC/drivers/gpu/drm/r36_hc16xx/Kconfig"
     grep -qxF 'source "drivers/gpu/drm/r36_hc16xx/Kconfig"' "$SRC/drivers/gpu/drm/Kconfig" || printf '\nsource "drivers/gpu/drm/r36_hc16xx/Kconfig"\n' >> "$SRC/drivers/gpu/drm/Kconfig"
@@ -62,6 +71,11 @@ if [ "$PROFILE" = display ]; then
         --enable DRM --enable DRM_KMS_HELPER --enable DRM_GEM_DMA_HELPER \
         --enable VIDEOMODE_HELPERS --enable OF_VIDEOMODE --enable OF_DISPLAY_TIMING \
         --enable APERTURE_HELPERS --disable DRM_FBDEV_EMULATION
+fi
+if [ "$PROFILE" = full ]; then
+    "$SRC/scripts/config" --file "$SRC/.config" --set-str LOCALVERSION -r36full \
+        --enable IIO --enable PWM --enable PWM_HC16XX \
+        --enable BACKLIGHT_CLASS_DEVICE --enable BACKLIGHT_PWM
 fi
 if [ "$PROFILE" = usb ]; then
     "$SRC/scripts/config" --file "$SRC/.config" --set-str LOCALVERSION -r36usb \
@@ -142,12 +156,12 @@ cp "$SRC/vmlinux.symvers" "$SRC/Module.symvers"
 for module_dir in "$ROOT/scripts/kernel_lab/amprpc_driver" "$ROOT/scripts/kernel_lab/hello_driver"; do
     make -C "$SRC" "${MAKE_ARGS[@]}" M="$module_dir" clean
 done
-if [ "$PROFILE" = display ]; then
+if [ "$PROFILE" = display ] || [ "$PROFILE" = full ]; then
     make -C "$SRC" "${MAKE_ARGS[@]}" M="$ROOT/display_driver" clean
 fi
 make -C "$SRC" "${MAKE_ARGS[@]}" M="$ROOT/scripts/kernel_lab/amprpc_driver" modules
 make -C "$SRC" "${MAKE_ARGS[@]}" M="$ROOT/scripts/kernel_lab/hello_driver" modules
-if [ "$PROFILE" = display ]; then
+if [ "$PROFILE" = display ] || [ "$PROFILE" = full ]; then
     make -C "$SRC" "${MAKE_ARGS[@]}" M="$ROOT/display_driver" modules
 fi
 if [ "${R36_AUDIO_BUILD:-0}" = 1 ]; then
@@ -170,7 +184,7 @@ cp "$ROOT/init.elf" "$OUT/init.elf"
 cp "$SRC/usr/initramfs_inc_data" "$OUT/initramfs.cpio.gz"
 cp "$ROOT/scripts/kernel_lab/amprpc_driver/r36_amprpc_poll.ko" "$OUT/"
 cp "$ROOT/scripts/kernel_lab/hello_driver/r36hello.ko" "$OUT/"
-if [ "$PROFILE" = display ]; then
+if [ "$PROFILE" = display ] || [ "$PROFILE" = full ]; then
     cp "$ROOT/display_driver/r36_hc16xx_drm.ko" "$ROOT/display_driver/port_source.json" "$OUT/"
 fi
 if [ "${R36_AUDIO_BUILD:-0}" = 1 ]; then
