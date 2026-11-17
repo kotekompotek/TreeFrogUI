@@ -1,5 +1,13 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Аппаратный trial полной сессии (`kernel_cold_full_session_v2`) — PID1 + DRM + I2S + swap + UI
+
+- В [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) добавлены: симлинк `/lib/ld.so.1 -> /mnt/sdcard/cubegm/lib/ld.so.1`, `swapon`, загрузка `r36_hc16xx_drm.ko` и `r36_hc16xx_i2s.ko` (`allow_takeover=1`), fallback на `r36-navigation-keys`/`r36-navigation.map` и `r36-sysd`/`r36-usb-mtp-adb` с SD, запись `r36-own-kernel-proof.txt` (`R36 OWN KERNEL USERSPACE REACHED`) и `r36-session-trial.txt`.
+- **Реальный запуск на R36S (`kernel_cold_full_session_v2_trial.json`, watchdog 90 с):**
+  - `proof` подтверждён (`run_id=482f44cab00744648658820aea6405af`, `7.2.0-rc5-r36full #26`, `pid=1`), `stock_restored=true`.
+  - В `r36-session-trial.txt` и `kernel.log`: `drm_ko=0`, `i2s_ko=0` (`r36-hc16xx-i2s 1880a000.sound: I2S playback, gain 0/255`), `swapon=0` (`131068k swap`), `sysd_pid=28`, `keys_pid=29`, `usb_pid=30`, `ui_pid=31` (`driver_so_ok=1`, `picoarch_ok=1`, `frogui_ok=1`).
+  - **Выявленный блокер перед постоянным переключением:** `musb-hc16xx 18844000.usb: OTG not supported, falling back to HOST mode` — для USB MTP на ПК в `r36-full.dts` нужен режим `peripheral` (или рабочий OTG role switch).
+
 ## Аппаратный trial единого ядра PROFILE=full (`kernel_cold_full_v1`) — PASS
 
 - **Компактная `-Os` сборка (`payload/kernel_full_vm_v3`, `7.2.0-rc5-r36full #24`):**

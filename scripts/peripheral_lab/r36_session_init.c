@@ -24,6 +24,8 @@
 #include <sys/reboot.h>
 #include <sys/stat.h>
 #include <sys/swap.h>
+#include <sys/syscall.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #else
@@ -185,9 +187,112 @@ static void r36_stop_child(pid_t *pid)
     *pid = 0;
 }
 
+static int r36_load_ko(const char *path, const char *params)
+{
+#ifndef R36_SESSION_MOCK
+    int fd;
+    struct stat st;
+    void *buf;
+    ssize_t n, off = 0;
+    long rc;
+
+    if (!path || access(path, F_OK) != 0)
+        return -1;
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0)
+        return -1;
+    if (fstat(fd, &st) != 0 || st.st_size <= 0 || st.st_size > 16 * 1024 * 1024) {
+        close(fd);
+        return -1;
+    }
+    buf = malloc((size_t)st.st_size);
+    if (!buf) {
+        close(fd);
+        return -1;
+    }
+    while (off < st.st_size) {
+        n = read(fd, (char *)buf + off, (size_t)(st.st_size - off));
+        if (n <= 0) {
+            if (n < 0 && errno == EINTR)
+                continue;
+            free(buf);
+            close(fd);
+            return -1;
+        }
+        off += n;
+    }
+    close(fd);
+    rc = syscall(SYS_init_module, buf, (unsigned long)st.st_size, params ? params : "");
+    free(buf);
+    return (rc == 0 || errno == EEXIST) ? 0 : -1;
+#else
+    (void)path;
+    (void)params;
+    return 0;
+#endif
+}
+
+static void r36_write_proof_and_log(int drm_rc, int i2s_rc, int swap_rc,
+                                    const struct r36_session_ctx *ctx)
+{
+#ifndef R36_SESSION_MOCK
+    char run_id[96] = "none";
+    FILE *rf = fopen("/mnt/sdcard/cubegm/r36-run-id.txt", "r");
+    struct utsname u;
+    FILE *pf;
+    FILE *lf;
+
+    if (rf) {
+        if (fgets(run_id, (int)sizeof(run_id), rf)) {
+            for (char *s = run_id; *s; s++)
+                if (*s == '\n' || *s == '\r') *s = '\0';
+        }
+        fclose(rf);
+    }
+    memset(&u, 0, sizeof(u));
+    (void)uname(&u);
+    pf = fopen("/mnt/sdcard/cubegm/r36-own-kernel-proof.txt", "w");
+    if (pf) {
+        fprintf(pf,
+                "R36 OWN KERNEL USERSPACE REACHED\n"
+                "run_id=%s\n"
+                "sysname=%s\n"
+                "release=%s\n"
+                "version=%s\n"
+                "machine=%s\n"
+                "pid=%d\n",
+                run_id, u.sysname, u.release, u.version, u.machine, (int)getpid());
+        fflush(pf);
+        fsync(fileno(pf));
+        fclose(pf);
+    }
+    lf = fopen("/mnt/sdcard/cubegm/r36-session-trial.txt", "w");
+    if (lf) {
+        fprintf(lf,
+                "run_id=%s\nrelease=%s\ndrm_ko=%d\ni2s_ko=%d\nswapon=%d\n"
+                "sysd_pid=%d\nkeys_pid=%d\nusb_pid=%d\n"
+                "driver_so_ok=%d\npicoarch_ok=%d\nfrogui_ok=%d\n",
+                run_id, u.release, drm_rc, i2s_rc, swap_rc,
+                (int)ctx->sysd_pid, (int)ctx->keys_pid, (int)ctx->usb_pid,
+                access(ctx->cfg.driver_so, F_OK) == 0 ? 1 : 0,
+                access(ctx->cfg.picoarch_bin, F_OK) == 0 ? 1 : 0,
+                access(ctx->cfg.frogui_core, F_OK) == 0 ? 1 : 0);
+        fflush(lf);
+        fsync(fileno(lf));
+        fclose(lf);
+    }
+#else
+    (void)drm_rc;
+    (void)i2s_rc;
+    (void)swap_rc;
+    (void)ctx;
+#endif
+}
+
 static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_session_cfg *custom)
 {
     int attempt;
+    int drm_rc = -1, i2s_rc = -1, swap_rc = -1;
 
     if (!ctx)
         return -1;
@@ -215,21 +320,48 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
         return -3;
     ctx->sd_mounted = 1;
 
+#ifndef R36_SESSION_MOCK
+    if (access("/lib/ld.so.1", F_OK) != 0 &&
+        access("/mnt/sdcard/cubegm/lib/ld.so.1", F_OK) == 0) {
+        mkdir("/lib", 0755);
+        (void)symlink("/mnt/sdcard/cubegm/lib/ld.so.1", "/lib/ld.so.1");
+    }
+    if (ctx->cfg.swapfile && access(ctx->cfg.swapfile, F_OK) == 0)
+        swap_rc = swapon(ctx->cfg.swapfile, 0);
+#endif
+
+    drm_rc = r36_load_ko("/mnt/sdcard/cubegm/r36_hc16xx_drm.ko", "");
+    i2s_rc = r36_load_ko("/mnt/sdcard/cubegm/r36_hc16xx_i2s.ko", "allow_takeover=1");
+
     if (r36_write_tfdevice_env(&ctx->cfg) != 0)
         return -4;
 
     if (ctx->cfg.sysd_bin && access(ctx->cfg.sysd_bin, F_OK) == 0) {
         const char *const argv[] = { ctx->cfg.sysd_bin, NULL };
         ctx->sysd_pid = r36_spawn_prog(argv);
+    } else if (access("/mnt/sdcard/cubegm/r36-sysd", F_OK) == 0) {
+        const char *const argv[] = { "/mnt/sdcard/cubegm/r36-sysd", NULL };
+        ctx->sysd_pid = r36_spawn_prog(argv);
     }
     if (ctx->cfg.keys_bin && access(ctx->cfg.keys_bin, F_OK) == 0) {
         const char *const argv[] = { ctx->cfg.keys_bin, ctx->cfg.keys_map, NULL };
+        ctx->keys_pid = r36_spawn_prog(argv);
+    } else if (access("/mnt/sdcard/cubegm/r36-navigation-keys", F_OK) == 0) {
+        const char *const argv[] = {
+            "/mnt/sdcard/cubegm/r36-navigation-keys",
+            "/mnt/sdcard/cubegm/r36-navigation.map",
+            NULL
+        };
         ctx->keys_pid = r36_spawn_prog(argv);
     }
     if (ctx->cfg.usb_bin && access(ctx->cfg.usb_bin, F_OK) == 0) {
         const char *const argv[] = { ctx->cfg.usb_bin, NULL };
         ctx->usb_pid = r36_spawn_prog(argv);
+    } else if (access("/mnt/sdcard/cubegm/r36-usb-mtp-adb", F_OK) == 0) {
+        const char *const argv[] = { "/mnt/sdcard/cubegm/r36-usb-mtp-adb", NULL };
+        ctx->usb_pid = r36_spawn_prog(argv);
     }
+    r36_write_proof_and_log(drm_rc, i2s_rc, swap_rc, ctx);
     return 0;
 }
 
@@ -266,6 +398,17 @@ static int r36_session_launch_ui(struct r36_session_ctx *ctx)
         ctx->cfg.picoarch_bin, ctx->cfg.frogui_core, ctx->cfg.frogui_core, NULL
     };
     ctx->ui_pid = r36_spawn_prog(argv);
+#ifndef R36_SESSION_MOCK
+    if (ctx->ui_pid > 0) {
+        FILE *lf = fopen("/mnt/sdcard/cubegm/r36-session-trial.txt", "a");
+        if (lf) {
+            fprintf(lf, "ui_pid=%d\n", (int)ctx->ui_pid);
+            fflush(lf);
+            fsync(fileno(lf));
+            fclose(lf);
+        }
+    }
+#endif
     return ctx->ui_pid > 0 ? 0 : -1;
 }
 
