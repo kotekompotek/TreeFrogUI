@@ -42,7 +42,7 @@ static uint8_t adc5_val = 140; /* charging */
 static int swapoff_called, umount_called, reboot_called, sync_called;
 static unsigned int reboot_cmd_seen;
 static char status_buf[128];
-static char conf_buf[128] = "volume_pct=60\nbrightness_pct=80\n";
+static char conf_buf[128] = "volume_pct=60\\nbrightness_pct=80\\n";
 
 struct r36_ev_queue_item {{ uint16_t type; uint16_t code; int32_t value; }};
 static struct r36_ev_queue_item ev_q[32];
