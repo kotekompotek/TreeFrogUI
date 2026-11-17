@@ -76,6 +76,26 @@ Candidate kernel_cold_usb_cdc_v4, exact present Windows devnode COM12,
 Watchdog вернул stock/MTP,6 boot hashes исходные, native restore verified,
 host_cleanup_wrote_boot_file=false. Это НЕ MTP/host/OTG/background acceptance.
 
+## Офлайн-подготовка композитного гаджета `MTP + ADB` (`FunctionFS`) 2026-11-17
+
+- Проверен аппаратный бюджет FIFO в `drivers/usb/musb/hc16xx.c` (`hc16xx_fifo_cfg`):
+  доступно `5 FIFO_TX` (`ep1in..ep5in`, 512 B) и `5 FIFO_RX` (`ep1out..ep5out`, 512 B).
+  Композитный гаджет `ffs.mtp` (`2 TX + 1 RX`) + `ffs.adb` (`1 TX + 1 RX`) при
+  штатном `VID 0x18d1 / PID 0x4e22` укладывается в `3 TX + 2 RX <= 5 TX + 5 RX`.
+- Реализован `scripts/peripheral_lab/usb_ffs_mtp_adb.h`:
+  - `FunctionFS` v2 дескрипторы и строки для `ffs.mtp` (FS/HS + Microsoft OS
+    Extended Compat ID `"MTP"` для автопривязки Windows `WpdMtpDr`) и `ffs.adb`
+    (`Class 0xFF, SubClass 0x42, Protocol 0x01`, `"ADB Interface"`), включая
+    инициализаторы `r36_ffs_init_mtp_ep0` и `r36_ffs_init_adb_ep0`.
+  - Userspace-отправка файлов `r36_mtp_ffs_send_file_with_header` поверх `ep_in`
+    (заменяет ядерный `ioctl(MTP_SEND_FILE_WITH_HEADER)` старого `usb_f_mtp.ko`
+    при переносе `tfmtp` на Linux 7.2 `FunctionFS`).
+  - Пакетный уровень и конечный автомат сессии `ADB` (`CNXN -> OPEN -> WRTE ->
+    OKAY -> CLSE`, проверка `magic` и контрольной суммы).
+- Добавлен тест `scripts/peripheral_lab/test_usb_ffs_mtp_adb.py` (нативная C-проверка
+  и кросс-компиляция `zig cc -target mipsel-linux.4.4-musleabi -Werror`): PASS.
+  Аппаратная приёмка `MTP + ADB` на консоли впереди.
+
 Первый hardware кандидат отказал ENOENT в configfs link: kern_path разрешает
 relative target от syscall cwd, исправлен absolute target. Затем Windows watcher
 сначала терял serial с дефисами, потом падал на PowerShell query timeout.
