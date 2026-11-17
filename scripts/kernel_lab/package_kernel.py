@@ -48,7 +48,7 @@ manifest = {
     "elf_program_header_normalization": normalization,
     "sha256": {name: hashlib.sha256((root / name).read_bytes()).hexdigest()
                for name in ["System.map", "kernel.config", "r36-lab.dtb", "vmlinux.bin",
-                             "vmlinux.elf", "vmlinuz.bin", "r36hello.ko", "r36memcheck.ko", "r36_amprpc_poll.ko", "r36_hc16xx_drm.ko", "r36_hc16xx_i2s.ko"]
+                             "vmlinux.elf", "vmlinuz.bin", "modules.tar.gz", "r36hello.ko", "r36memcheck.ko", "r36_amprpc_poll.ko", "r36_hc16xx_drm.ko", "r36_hc16xx_i2s.ko"]
                if (root / name).is_file()},
 }
 for name in ["init.elf", "initramfs.cpio.gz"]:

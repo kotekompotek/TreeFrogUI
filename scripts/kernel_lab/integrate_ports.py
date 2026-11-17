@@ -1,5 +1,6 @@
 """Install this workspace's private driver overlay into the pinned kernel tree."""
 from pathlib import Path
+import os
 import shutil
 import sys
 
@@ -16,22 +17,30 @@ text = makefile.read_text()
 if line not in text:
     makefile.write_text(text.rstrip() + "\n" + line + "\n")
 
-# HC16xx glue currently implements gadget/PIO only; do not force dual-role.
+# Default isolated builds use gadget/PIO only; OTG+Wi-Fi/BT builds opt into dual-role.
 kconfig = src / "drivers/usb/musb/Kconfig"
 text = kconfig.read_text()
 before, block = text.split("config USB_MUSB_HC16XX\n", 1)
 middle, after = block.split('comment "MUSB DMA mode"', 1)
-if "\tselect USB_MUSB_DUAL_ROLE\n" in middle:
-    middle = middle.replace("\tselect USB_MUSB_DUAL_ROLE\n", "\tselect USB_MUSB_GADGET\n")
-elif "\tselect USB_MUSB_GADGET\n" not in middle:
-    raise ValueError("unexpected HC16xx Kconfig block")
+otg_mode = os.environ.get("R36_OTG_WIFI_BT") == "1"
+if otg_mode:
+    if "\tselect USB_MUSB_GADGET\n" in middle:
+        middle = middle.replace("\tselect USB_MUSB_GADGET\n", "\tselect USB_MUSB_DUAL_ROLE\n")
+    elif "\tselect USB_MUSB_DUAL_ROLE\n" not in middle:
+        raise ValueError("unexpected HC16xx Kconfig block")
+else:
+    if "\tselect USB_MUSB_DUAL_ROLE\n" in middle:
+        middle = middle.replace("\tselect USB_MUSB_DUAL_ROLE\n", "\tselect USB_MUSB_GADGET\n")
+    elif "\tselect USB_MUSB_GADGET\n" not in middle:
+        raise ValueError("unexpected HC16xx Kconfig block")
 kconfig.write_text(before + "config USB_MUSB_HC16XX\n" + middle + 'comment "MUSB DMA mode"' + after)
 
-# Core start/stop own controller IRQ masks; glue must not nest Linux IRQ-depth
-# changes or synchronously disable the ISR while holding musb->lock.
-from usb_overlay import patch_musb_irq_lifecycle
+# Core start/stop own controller IRQ masks; also fix UTMI 8-bit width,
+# DEVCTL.SESSION and per-device dr_mode propagation for host/OTG operation.
+from usb_overlay import patch_musb_host_otg_support, patch_musb_irq_lifecycle
 usb_glue = src / "drivers/usb/musb/hc16xx.c"
-usb_glue.write_text(patch_musb_irq_lifecycle(usb_glue.read_text()))
+patched_usb = patch_musb_irq_lifecycle(usb_glue.read_text())
+usb_glue.write_text(patch_musb_host_otg_support(patched_usb))
 
 # The external timer driver gates the same counter used by its clocksource.
 # Use the CPU Count/Compare path used by this board's stock Linux instead.

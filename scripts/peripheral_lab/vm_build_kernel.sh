@@ -35,7 +35,11 @@ cp "$ROOT/scripts/kernel_lab/r36-boot.dts" "$SRC/arch/mips/boot/dts/hichip/r36-b
 cp "$ROOT/scripts/kernel_lab/r36-avp-poll.dts" "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
 if [ "$PROFILE" = usb ]; then
     cp "$ROOT/scripts/kernel_lab/r36-avp-poll.dts" "$SRC/arch/mips/boot/dts/hichip/r36-avp-poll.dts"
-    cp "$ROOT/scripts/kernel_lab/r36-usb-cdc.dts" "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
+    if [ "${R36_OTG_WIFI_BT:-0}" = 1 ]; then
+        cp "$ROOT/scripts/kernel_lab/r36-usb-otg.dts" "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
+    else
+        cp "$ROOT/scripts/kernel_lab/r36-usb-cdc.dts" "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
+    fi
 fi
 if [ "$PROFILE" = display ]; then
     cp "$ROOT/scripts/kernel_lab/r36-avp-poll.dts" "$SRC/arch/mips/boot/dts/hichip/r36-avp-poll.dts"
@@ -88,13 +92,42 @@ if [ "${R36_AUDIO_BUILD:-0}" = 1 ]; then
     printf '\n#include "r36-audio.dts"\n' >> "$SRC/arch/mips/boot/dts/hichip/r36-lab.dts"
     cp "$ROOT/audio_driver/r36-audio.dts" "$SRC/arch/mips/boot/dts/hichip/r36-audio.dts"
 fi
+if [ "${R36_OTG_WIFI_BT:-0}" = 1 ]; then
+    "$SRC/scripts/config" --file "$SRC/.config" \
+        --enable MODULES --enable MODULE_UNLOAD \
+        --enable USB --enable USB_SUPPORT --enable USB_MUSB_HDRC --enable USB_MUSB_HC16XX \
+        --enable USB_MUSB_DUAL_ROLE --disable USB_MUSB_GADGET --disable USB_MUSB_HOST \
+        --enable USB_ROLE_SWITCH --enable MUSB_PIO_ONLY --enable PHY_HICHIP_USB --enable NOP_USB_XCEIV \
+        --enable USB_ANNOUNCE_NEW_DEVICES \
+        --enable USB_GADGET --enable USB_CONFIGFS --enable USB_CONFIGFS_F_FS --enable USB_CONFIGFS_ACM \
+        --enable HID_SUPPORT --enable HID --enable USB_HID --enable UHID --enable HID_GENERIC \
+        --enable NET --enable PACKET --enable UNIX --enable INET --enable NETDEVICES \
+        --enable WIRELESS --enable WLAN --enable FW_LOADER --enable RFKILL \
+        --module CFG80211 --module MAC80211 \
+        --enable WLAN_VENDOR_REALTEK --module RTL8XXXU --enable RTL8XXXU_UNTESTED \
+        --module RTW88 --module RTW88_USB --module RTW88_8821CU --module RTW88_8822BU --module RTW88_8723DU \
+        --enable WLAN_VENDOR_MEDIATEK --module MT7601U \
+        --enable WLAN_VENDOR_RALINK --module RT2X00 --module RT2800USB \
+        --enable WLAN_VENDOR_ATH --module ATH9K_HTC \
+        --module USB_USBNET --module USB_NET_CDCETHER --module USB_NET_RNDIS_HOST --module USB_RTL8152 \
+        --module BT --enable BT_BREDR --enable BT_RFCOMM --enable BT_BNEP --enable BT_HIDP --enable BT_LE \
+        --module BT_HCIBTUSB --enable BT_HCIBTUSB_BCM --enable BT_HCIBTUSB_RTL --enable BT_HCIBTUSB_MTK
+fi
 make -C "$SRC" "${MAKE_ARGS[@]}" olddefconfig
-if [ "$PROFILE" = usb ]; then
+if [ "$PROFILE" = usb ] && [ "${R36_OTG_WIFI_BT:-0}" != 1 ]; then
     for option in INPUT GPIO_HC16XX SND DRM VT USB_MUSB_HOST USB_MUSB_DUAL_ROLE; do
         if grep -qE "^CONFIG_${option}=[ym]$" "$SRC/.config"; then
             printf 'USB isolation failed: %s\n' "$option" >&2
             exit 54
         fi
+    done
+fi
+if [ "${R36_OTG_WIFI_BT:-0}" = 1 ]; then
+    for option in USB_MUSB_DUAL_ROLE USB_ROLE_SWITCH PHY_HICHIP_USB; do
+        grep -qxF "CONFIG_${option}=y" "$SRC/.config"
+    done
+    for option in CFG80211 MAC80211 BT BT_HCIBTUSB; do
+        grep -qE "^CONFIG_${option}=[ym]$" "$SRC/.config"
     done
 fi
 if [ "${R36_AUDIO_BUILD:-0}" = 1 ]; then
@@ -120,6 +153,13 @@ fi
 if [ "${R36_AUDIO_BUILD:-0}" = 1 ]; then
     make -C "$SRC" "${MAKE_ARGS[@]}" M="$ROOT/audio_driver" clean
     make -C "$SRC" "${MAKE_ARGS[@]}" M="$ROOT/audio_driver" modules
+fi
+if [ "${R36_OTG_WIFI_BT:-0}" = 1 ]; then
+    make -C "$SRC" -j1 "${MAKE_ARGS[@]}" modules
+    rm -rf /work/modroot
+    make -C "$SRC" "${MAKE_ARGS[@]}" INSTALL_MOD_PATH=/work/modroot INSTALL_MOD_STRIP=1 modules_install
+    find /work/modroot -type l -delete
+    tar -C /work/modroot -czf "$OUT/modules.tar.gz" lib/modules
 fi
 llvm-objcopy -O binary "$SRC/vmlinux" "$OUT/vmlinux.bin"
 cp "$SRC/vmlinux" "$OUT/vmlinux.elf"
