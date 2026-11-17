@@ -159,8 +159,8 @@
     `cold_restore_emulation` 8/8 PASS, `cold_restore_native_fallback` 1/1 PASS).
   - **Следующее (вечером при включении консоли):** перезапустить `keepawake` и
     выполнить hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
-- **Выполнены 3 офлайн-юнита для следующих этапов порта (`290 passed, 14 skipped`):**
-  1. **USB Composite `MTP + ADB` (`FunctionFS`):**
+- **Пока консоль выключена до вечера, выполнены офлайн-юниты порта (`295 passed, 14 skipped`):**
+  1. **USB Composite `MTP + ADB` (`FunctionFS`) (`859bcb1`, `684d3f0`):**
      `scripts/peripheral_lab/usb_ffs_mtp_adb.h`, `scripts/peripheral_lab/usb_mtp_adb_service.c`,
      `scripts/peripheral_lab/vm_build_kernel.sh` (`--enable USB_CONFIGFS_F_FS`),
      `scripts/peripheral_lab/test_usb_ffs_mtp_adb.py`.
@@ -168,22 +168,43 @@
      при штатном `VID 0x18d1 / PID 0x4e22`), реализованы `FunctionFS` v2 дескрипторы
      для `ffs.mtp` (FS/HS + MS OS `"MTP"`) и `ffs.adb` (`0xFF/0x42/0x01`),
      полная настройка `configfs` + `functionfs` со строгим порядком записи обоих `ep0`
-     до привязки `UDC`, и мультиплексированный сервис `r36_mtp_adb_poll_once`,
-     одновременно обслуживающий `MTP` и `ADB` (`CNXN`, `shell:`, `sync:` `SEND`/`STAT`/`RECV`/`QUIT`).
+     до привязки `UDC`, авто-выбор транспорта `r36_open_mtp_transport` (`FunctionFS`
+     `/dev/ffs-mtp` либо legacy `/dev/mtp_usb`) и мультиплексированный сервис
+     `r36_mtp_adb_poll_once`, одновременно обслуживающий полные файловые операции
+     `MTP`/`tfmtp` (`OpenSession`, `CloseSession`, `GetDeviceInfo`, `GetStorageIDs`,
+     `GetStorageInfo`, `GetObjectHandles`, `GetObjectInfo`, `GetObject`,
+     `GetPartialObject`, `SendObjectInfo`, `SendObject`, `DeleteObject`, `OP_TF_Info`)
+     и `ADB` (`CNXN`, `shell:`, `sync:` `SEND`/`STAT`/`RECV`/`QUIT`).
   2. **12-кнопочный игровой ввод (`legacy_keys -> SysV -> libretro`) (`398a711`):**
      `scripts/peripheral_lab/prepare_ui_gameplay_input.py` + `test_ui_gameplay_input.py`.
      Строгая сверка всех 12 игровых кнопок (`UP/RIGHT/DOWN/LEFT/A/B/X/Y/START/SELECT/L1/R1`)
      против `INPUT_PHYSICAL_v3_RESULT.json`, исключение системных кнопок
      (`FN/VOL+/VOL-/POWER/L2/R2`), сквозной C-тест `load_mapping` + `r36_key_event` +
      `r36_legacy_to_libretro` на реальных кодах `704..715` и сборка полного MIPS-бриджа.
-  3. **ALSA аудио-бэкенд `sound_driver_*` для `picoarch`:**
-     `scripts/peripheral_lab/audio_alsa_backend.c` + `test_audio_alsa_backend.py`.
+  3. **ALSA аудио-бэкенд `sound_driver_*` и объединённый `PICOARCH_DRIVER` (`96727b1`, `31e6282`):**
+     `scripts/peripheral_lab/audio_alsa_backend.c` + `test_audio_alsa_backend.py`, а также
+     единая единица трансляции `scripts/peripheral_lab/driver_r36_combined_backend.c`
+     (включает неизменённый `video_drm_backend.c` и `audio_alsa_backend.c`) +
+     `test_combined_driver_backend.py` (интерлив-цикл DRM page flip + ALSA warmup/playframe + MIPS `zig cc`).
      По дизассемблеру `picoarch` (`0x42c2a0..0x42cf88`) и `driver_gb350.so`
      подтверждено, что `picoarch` загружает `sound_driver_init`,
      `sound_driver_playframe`, `sound_driver_deinit` из `PICOARCH_DRIVER` и
      делает двойной прогрев `init(NULL, 48000, 2) -> deinit() -> init(NULL, 48000, 2)`
-     перед подачей блоков по 480 фреймов (10 мс). Реализован и проверен на C-модели
-     и MIPS-сборке бэкенд под 12-словный UAPI `r36_hc16xx_i2s`.
+     перед подачей блоков по 480 фреймов (10 мс).
+  4. **Батарея `/dev/check_adc1` и `/dev/check_adc5` (`6956d07`):**
+     `scripts/kernel_lab/ports/hc16xx-adc-ro.c`, `scripts/peripheral_lab/adc_battery_osd.h`,
+     `scripts/kernel_lab/tests/test_hc16xx_adc_ro.py`.
+     Сохранена IIO-регистрация `hc16xx-adc-ro`, добавлены char-узлы `miscdevice`
+     `/dev/check_adc1` (ch1) и `/dev/check_adc5` (ch5) с калибровкой `(sample * 241) / ref`
+     и чтением по 1 байту без EOF при удержанном открытом fd, плюс userspace-кривая
+     R36S `{64, 153, 180} -> {0, 50, 100}%` и порог зарядки `>= 64`.
+  5. **Политика прямых кнопок `r36-direct-keys` и PA/наушников `GPIO19`/`GPIO15`:**
+     `scripts/peripheral_lab/direct_keys_policy.h` + `test_direct_keys_policy.py`.
+     Коды сверены с `INPUT_PHYSICAL_v3_RESULT.json` (`L2=109, R2=104, FN=59, VOL+=115,
+     VOL-=114, POWER=116`): регулировка громкости `0..100%`, `FN`+`VOL+/-` для яркости
+     `5..100%`, короткое нажатие `POWER` (`<1500 мс`) -> sleep toggle / удержание
+     `>=1500 мс` -> poweroff, и таблица истинности `r36_speaker_amp_should_enable` для
+     `GPIO19` speaker PA / `GPIO15` HP-detect.
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 

@@ -104,13 +104,17 @@ host_cleanup_wrote_boot_file=false. Это НЕ MTP/host/OTG/background acceptan
     `/dev/ffs-adb/ep1..2`) **до** привязки `UDC` (`musb-hdrc.0.auto`), плюс чистый
     `r36_teardown_mtp_adb_gadget`.
   - Мультиплексированный цикл `r36_mtp_adb_poll_once`, одновременно обслуживающий
-    контейнеры `MTP` (`OpenSession`, `CloseSession`, `GetDeviceInfo`, `GetStorageIDs`)
-    и сессии `ADB` (`CNXN`, `OPEN("shell:...")`, `OPEN("sync:")` с файловыми
-    операциями `SEND`/`adb push`, `STAT`, `RECV`/`adb pull`, `QUIT` и защитой от
-    обхода путей `..`).
+    контейнеры `MTP`/`tfmtp` (`OpenSession`, `CloseSession`, `GetDeviceInfo`,
+    `GetStorageIDs`, `GetStorageInfo`, `GetObjectHandles`, `GetObjectInfo`,
+    `GetObject`, `GetPartialObject`, `SendObjectInfo`, `SendObject`,
+    `DeleteObject`, `OP_TF_Info`) с авто-выбором транспорта
+    (`r36_open_mtp_transport`: `FunctionFS` `/dev/ffs-mtp` на Linux 7.2 либо
+    legacy `/dev/mtp_usb` на stock 4.4) и сессии `ADB` (`CNXN`, `OPEN("shell:...")`,
+    `OPEN("sync:")` с файловыми операциями `SEND`/`adb push`, `STAT`,
+    `RECV`/`adb pull`, `QUIT` и защитой от обхода путей `..`).
   - Проверены отказ на каждом шаге инициализации, отсутствие/неоднозначность `UDC`,
-    одновременный обмен `MTP + ADB` и сборка статического MIPS32r2 бинарника
-    `r36-usb-mtp-adb.elf`. Аппаратная приёмка `MTP + ADB` на консоли впереди.
+    полный цикл файловых операций `MTP` + одновременный `ADB` и кросс-сборка MIPS32r2.
+    Аппаратная приёмка `MTP + ADB` на консоли впереди.
 
 Первый hardware кандидат отказал ENOENT в configfs link: kern_path разрешает
 relative target от syscall cwd, исправлен absolute target. Затем Windows watcher

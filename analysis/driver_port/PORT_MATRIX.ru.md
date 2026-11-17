@@ -41,13 +41,13 @@ AVP response/UI/display/audio/input PASS нет**: пользователь от
 | USB0 peripheral | musb/hc16xx.c + phy-hichip-usb.c | HARDWARE CDC PASS:Windows exact present devnode COM12,3random PING/PONG,114B each direction,bind/unbind0; USB_CDC_HARDWARE_VERIFIED.json. MTP/host/OTG/background pending |
 | USB1, USB host/OTG/DMA | тот же MUSB IP | Upstream glue не реализует host/OTG/DMA; это отдельный перенос, не включать как якобы готовое |
 | libcomposite, ACM/serial | стандартные Linux 7.2 gadget drivers | Один isolated CDC Windows roundtrip HARDWARE PASS,3 challenges; sustained/reconnect/UI coexistence ещё не приняты |
-| MTP/PTP | stock usb_f_mtp/ptp | Старые .ko непригодны для 7.2; возможна замена userspace FunctionFS, текущий tfmtp ожидает штатный интерфейс |
+| MTP/PTP | stock usb_f_mtp/ptp + `usb_mtp_adb_service.c` (`FunctionFS`) | Старые `.ko` непригодны для 7.2; реализованы userspace `FunctionFS` v2 дескрипторы и полный цикл `tfmtp` (`GetStorageInfo`/`GetObjectHandles`/`GetObjectInfo`/`GetObject`/`GetPartialObject`/`SendObjectInfo`/`SendObject`/`DeleteObject`/`OP_TF_Info`) + авто-выбор `FunctionFS`/legacy `/dev/mtp_usb` и одновременный `ADB` (`usb_mtp_adb_service.c`), офлайн-тест PASS; аппаратная приёмка на консоли впереди |
 | iAP/IUM | stock f_iap, f_ium, ium | Нет исходников в текущем дереве; необходимость для нашей ОС отдельно оценить |
 | GPIO: четыре банка | gpio-hc16xx.c | Собран в отдельном input-профиле; на железе не проверен |
 | Pinmux | pinctrl-hc16xx.c | Собран в input-профиле; pin names/значения проверить на железе |
 | Кнопки/стики | gpio_serializer_keys.c + poll-only keys + legacy_keys SysV publisher | Console input inventory2devices PASS,events0/IRQERR2,physical pins/order/navigation not verified. Native VM evdev->SysV8 cases PASS; real SysV->MIPS Gambatte->synthetic ROM press/release PASS. MIPS publisher QEMU evdev ioctl ENOTTY, not accepted. Human-label calibration tool ready; physical calibration pending |
 | PWM/backlight | pwm-hc16xx.c + pwm-backlight | Есть; владение PWM сейчас у AVP, необходима согласованная передача |
-| ADC check_adc1/check_adc5 | наш hc16xx-adc-ro.c, IIO | Собран пассивный доступ к result bytes; настройка SAR, калибровка и старый char ABI ещё не перенесены |
+| ADC check_adc1/check_adc5 | наш hc16xx-adc-ro.c (IIO + `/dev/check_adc1`, `/dev/check_adc5`) + `adc_battery_osd.h` | Сохраняет passive IIO, добавлены calibrated char-узлы `miscdevice` без EOF при удержанном открытом fd и userspace-кривая `{64,153,180}->{0,50,100}%` + зарядка `>=64`; офлайн C-модель и тесты PASS, на железе ещё не проверялось |
 | Перезапуск через watchdog | наш hc16xx-restart.c | Собран restart handler с включением watchdog clock; аппаратно пока не проверен |
 | Полный watchdog /dev/watchdog | отсутствует | Неизвестны точные timing/prescaler semantics; одного restart callback недостаточно |
 | AMPRPC mailbox, IRQ66 | r36_amprpc_poll + userspace bring-up client | Polling diagnostic собран под7.2-r36port; packet/ISR algorithms проверены оригинальным кодом. Hardware response, IRQ/callback/nested ioctl transport ещё не приняты |
@@ -58,7 +58,7 @@ AVP response/UI/display/audio/input PASS нет**: пользователь от
 | fb0/fb1 | stock hcfb; r36_hc16xx_drm fixed-timing port | KMS v5 IRQ-fix HARDWARE PASS: SETCRTC/vblank/DMA pixel hashes8d21d5c5 совпали, IRQ2->18/ERR0, камера подтвердила полосы640x480RGB565. DISPLAY_HARDWARE_VERIFIED.json. Watchdog вернул stock/MTP,6 boot hashes целы. Не full UI/audio/input acceptance |
 | GE/2D | stock hcge, reg18806000, IRQ4 | Нет исходника в новом дереве; нужно восстановить command queue + interrupt/mmap ABI |
 | MIPI/панель | AVP mipi proxy, DSI1884a000 | DTB содержит panel/reset/init параметры, но DSI host ещё не реализован |
-| Звук I2SO/CS4344 | native ALSA r36_hc16xx_i2s | Silent DMA HARDWARE PASS:24576frames48kStereoS16LE,gain0/mute1,IRQ0->41,DROP0/RUN0; AUDIO_SILENT_HARDWARE_VERIFIED.json. Amplifier/headphone/audible signal/picoarch audio backend pending, foreign syscore removed |
+| Звук I2SO/CS4344 | native ALSA r36_hc16xx_i2s + `driver_r36_combined_backend.c` + `direct_keys_policy.h` | Silent DMA HARDWARE PASS: 24576 frames 48kStereoS16LE, gain0/mute1, IRQ0->41, DROP0/RUN0; `AUDIO_SILENT_HARDWARE_VERIFIED.json`. Офлайн реализованы объединённый видео+аудио `PICOARCH_DRIVER` и правило `GPIO19` amp / `GPIO15` HP-detect; аппаратная проверка слышимого звука и GPIO впереди |
 | Аудио-/видеодекодеры, sinks, avsync | auddec/audsink/viddec/vidsink/avsync0 | Зависят от AVP transport, kshm/mmz и userspace ioctl ABI |
 | HDMI, HDMI-RX, TV/PQ, VIN | AVP proxies | В Linux узлы есть, часть блоков выключена на AVP; перенос зависит от фактической надобности/железа |
 | Standby/ZZd2C | AVP proxies | Нужны AMPRPC и точный ABI; GPIO power latch отдельно не трогается |

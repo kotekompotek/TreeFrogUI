@@ -117,12 +117,15 @@
   Собраны и проверены офлайн `payload/kernel_ui_flip_v4` (`initramfs 34521 <= 34768`)
   и `payload/kernel_cold_ui_flip_v4` (`watchdog_seconds=90`, эмуляции 8+1 PASS).
   Следующий шаг — hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
-- Пока консоль выключена до вечера, подготовлены и верифицированы офлайн три
-  следующих модуля порта (`290 passed, 14 skipped`):
-  - `scripts/peripheral_lab/usb_ffs_mtp_adb.h` + `test_usb_ffs_mtp_adb.py`:
-    дескрипторы `FunctionFS` v2 для композитного `MTP + ADB` (`0x18d1:0x4e22`,
-    `3 TX + 2 RX <= 5 TX + 5 RX` в `hc16xx_fifo_cfg`), потоковая отправка файлов
-    для `tfmtp` без ядерного `usb_f_mtp.ko` и конечный автомат пакетов `ADB`.
+- Пока консоль выключена до вечера, подготовлены и верифицированы офлайн следующие
+  модули порта (`295 passed, 14 skipped`):
+  - `scripts/peripheral_lab/usb_ffs_mtp_adb.h` + `usb_mtp_adb_service.c` +
+    `test_usb_ffs_mtp_adb.py`: дескрипторы `FunctionFS` v2 для композитного `MTP + ADB`
+    (`0x18d1:0x4e22`, `3 TX + 2 RX <= 5 TX + 5 RX` в `hc16xx_fifo_cfg`), полный стек
+    файловых операций `tfmtp` (`GetStorageInfo`/`GetObjectHandles`/`GetObjectInfo`/
+    `GetObject`/`GetPartialObject`/`SendObjectInfo`/`SendObject`/`DeleteObject`/
+    `OP_TF_Info`), авто-выбор `FunctionFS`/legacy `/dev/mtp_usb` и одновременный `ADB`
+    (`CNXN`, `shell:`, `sync:`).
   - `scripts/peripheral_lab/prepare_ui_gameplay_input.py` + `test_ui_gameplay_input.py`:
     валидатор полной 12-кнопочной игровой карты из `INPUT_PHYSICAL_v3_RESULT.json`
     и сквозной тест `legacy_keys -> SysV -> r36_legacy_to_libretro` + MIPS-сборка.
@@ -130,6 +133,19 @@
     ALSA-реализация `sound_driver_init`/`sound_driver_playframe`/`sound_driver_deinit`/
     `sound_driver_flush` под проверенный 12-словный UAPI `r36_hc16xx_i2s` с учётом
     двойного прогрева `init -> deinit -> init` в `picoarch` (`0x42ce80..0x42cfb8`).
+  - `scripts/peripheral_lab/driver_r36_combined_backend.c` +
+    `test_combined_driver_backend.py`: объединённый `PICOARCH_DRIVER` (неизменённый
+    `video_drm_backend.c` + `audio_alsa_backend.c`), проверенный интерлив-циклом DRM
+    page flip + ALSA warmup/playframe + `zig cc` MIPS32r2.
+  - `scripts/kernel_lab/ports/hc16xx-adc-ro.c` + `adc_battery_osd.h` +
+    `scripts/kernel_lab/tests/test_hc16xx_adc_ro.py`: char-узлы `miscdevice`
+    `/dev/check_adc1` и `/dev/check_adc5` (calibrated `(sample * 241) / ref`, чтение
+    без EOF на открытом fd, сохранение IIO) и R36S-кривая `{64, 153, 180} -> {0, 50, 100}%`
+    + порог зарядки `>= 64`.
+  - `scripts/peripheral_lab/direct_keys_policy.h` + `test_direct_keys_policy.py`:
+    политика прямых кнопок `r36-direct-keys` (`L2=109, R2=104, FN=59, VOL+=115,
+    VOL-=114, POWER=116`: громкость, `FN`+`VOL+/-` яркость, short/long `POWER`) и
+    правило `GPIO19` speaker PA по `GPIO15` headphone-detect.
 
 ## UI directional navigation v1 accepted; black-square defect open
 

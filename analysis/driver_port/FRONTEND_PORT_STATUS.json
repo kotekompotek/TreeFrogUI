@@ -209,6 +209,12 @@
     "picoarch_alsa_backend_source": "scripts/peripheral_lab/audio_alsa_backend.c",
     "picoarch_alsa_backend_test": "scripts/peripheral_lab/test_audio_alsa_backend.py",
     "picoarch_alsa_backend_offline_verified": true,
+    "combined_driver_source": "scripts/peripheral_lab/driver_r36_combined_backend.c",
+    "combined_driver_test": "scripts/peripheral_lab/test_combined_driver_backend.py",
+    "combined_driver_offline_verified": true,
+    "direct_keys_and_amp_policy_header": "scripts/peripheral_lab/direct_keys_policy.h",
+    "direct_keys_and_amp_policy_test": "scripts/peripheral_lab/test_direct_keys_policy.py",
+    "direct_keys_and_amp_policy_offline_verified": true,
     "real_PCM": true,
     "built": true,
     "build_receipt": "payload/kernel_display_input_audio_vm_v1/build_receipt.json",
@@ -290,10 +296,17 @@
       "separate host/OTG/VBUS support and peripheral acceptance"
     ]
   },
+  "battery_and_adc": {
+    "driver_source": "scripts/kernel_lab/ports/hc16xx-adc-ro.c",
+    "userspace_osd_header": "scripts/peripheral_lab/adc_battery_osd.h",
+    "test": "scripts/kernel_lab/tests/test_hc16xx_adc_ro.py",
+    "offline_verified": true,
+    "hardware_verified": false
+  },
   "remaining_checklist": "analysis/driver_port/REMAINING_AND_TESTS.ru.md",
   "roms_or_assets_modified": false,
   "stock_ui_overwritten": false,
-  "pytest_passed": 262,
+  "pytest_passed": 295,
   "pytest_skipped": 14,
   "saved_userspace_inventory": "analysis/driver_port/frontend_saved_runtime_v1.json",
   "saved_userspace_note": "Saved local rootfs snapshot lacks libc/loader and several UI dependencies; inspect/copy actual console libs before claiming old frontend launch readiness.",
