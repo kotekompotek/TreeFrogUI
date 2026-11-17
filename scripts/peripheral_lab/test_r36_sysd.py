@@ -32,6 +32,7 @@ def test_r36_sysd_full_loop_and_mips_compile(tmp_path):
 #define FD_ADC1    15
 #define FD_ADC5    16
 #define FD_STATUS  17
+#define FD_CONF    18
 
 static int bl_raw_written = -1;
 static int gpio15_level = 1; /* active-low HP unplugged */
@@ -41,6 +42,7 @@ static uint8_t adc5_val = 140; /* charging */
 static int swapoff_called, umount_called, reboot_called, sync_called;
 static unsigned int reboot_cmd_seen;
 static char status_buf[128];
+static char conf_buf[128] = "volume_pct=60\nbrightness_pct=80\n";
 
 struct r36_ev_queue_item {{ uint16_t type; uint16_t code; int32_t value; }};
 static struct r36_ev_queue_item ev_q[32];
@@ -63,6 +65,7 @@ static int mock_open(const char *path, int flags, ...) {{
     if (!strcmp(path, "/dev/check_adc1")) return FD_ADC1;
     if (!strcmp(path, "/dev/check_adc5")) return FD_ADC5;
     if (!strcmp(path, "/tmp/r36-battery.status")) return FD_STATUS;
+    if (!strcmp(path, "/mnt/sdcard/cubegm/r36_sysd.conf")) return FD_CONF;
     errno = ENOENT;
     return -1;
 }}
@@ -84,6 +87,12 @@ static ssize_t mock_read(int fd, void *buf, size_t count) {{
     }}
     if (fd == FD_ADC1 && count >= 1) {{ *(uint8_t *)buf = adc1_val; return 1; }}
     if (fd == FD_ADC5 && count >= 1) {{ *(uint8_t *)buf = adc5_val; return 1; }}
+    if (fd == FD_CONF) {{
+        size_t n = strlen(conf_buf);
+        if (n > count) n = count;
+        memcpy(buf, conf_buf, n);
+        return (ssize_t)n;
+    }}
     if (fd == FD_EVDEV) {{
         if (ev_head >= ev_tail) {{ errno = EAGAIN; return -1; }}
         assert(count == 16 || count >= 16);
@@ -105,6 +114,7 @@ static ssize_t mock_write(int fd, const void *buf, size_t count) {{
     if (fd == FD_BL_CUR) {{ bl_raw_written = atoi(tmp); return (ssize_t)count; }}
     if (fd == FD_GPIO19) {{ gpio19_amp_written = atoi(tmp); return (ssize_t)count; }}
     if (fd == FD_STATUS) {{ memcpy(status_buf, tmp, copy + 1); return (ssize_t)count; }}
+    if (fd == FD_CONF) {{ memcpy(conf_buf, tmp, copy + 1); return (ssize_t)count; }}
     return -1;
 }}
 
@@ -151,6 +161,7 @@ int main(void) {{
     push_key(R36_DIRECT_CODE_FN, 0);
     assert(r36_sysd_step(&st, 200) == 0);
     assert(st.keys.brightness_pct == 70 && bl_raw_written == 140);
+    assert(strstr(conf_buf, "brightness_pct=70") != NULL);
 
     /* Headphone inserted (GPIO15 -> 0) disables speaker PA (GPIO19 -> 0) */
     gpio15_level = 0;

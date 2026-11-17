@@ -73,6 +73,7 @@ struct r36_sysd_paths {
     const char *gpio15_hp_path;
     const char *gpio19_amp_path;
     const char *battery_status_path;
+    const char *config_path;
     const char *sd_mountpoint;
     const char *sd_swapfile;
 };
@@ -141,8 +142,53 @@ static void r36_sysd_default_paths(struct r36_sysd_paths *p)
     p->gpio15_hp_path = "/sys/class/gpio/gpio15/value";
     p->gpio19_amp_path = "/sys/class/gpio/gpio19/value";
     p->battery_status_path = "/tmp/r36-battery.status";
+    p->config_path = "/mnt/sdcard/cubegm/r36_sysd.conf";
     p->sd_mountpoint = "/mnt/sdcard";
     p->sd_swapfile = "/mnt/sdcard/cubegm/pagefile.sys";
+}
+
+static void r36_sysd_load_config(const struct r36_sysd_state *st, int *vol_pct, int *brt_pct)
+{
+    char buf[128];
+    int fd;
+    ssize_t n;
+    char *p;
+
+    if (!st || !st->paths.config_path)
+        return;
+    fd = open(st->paths.config_path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0)
+        return;
+    n = read(fd, buf, sizeof(buf) - 1u);
+    close(fd);
+    if (n <= 0)
+        return;
+    buf[n] = '\0';
+    p = strstr(buf, "volume_pct=");
+    if (p)
+        *vol_pct = atoi(p + 11);
+    p = strstr(buf, "brightness_pct=");
+    if (p)
+        *brt_pct = atoi(p + 15);
+}
+
+static void r36_sysd_save_config(const struct r36_sysd_state *st)
+{
+    char buf[128];
+    int fd, len;
+
+    if (!st || !st->paths.config_path)
+        return;
+    fd = open(st->paths.config_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd < 0)
+        return;
+    len = snprintf(buf, sizeof(buf), "volume_pct=%d\nbrightness_pct=%d\n",
+                   st->keys.volume_pct, st->keys.brightness_pct);
+    if (len > 0 && (size_t)len < sizeof(buf)) {
+        ssize_t ignored = write(fd, buf, (size_t)len);
+        (void)ignored;
+    }
+    close(fd);
 }
 
 static int r36_sysd_apply_backlight(struct r36_sysd_state *st)
@@ -197,6 +243,7 @@ static void r36_sysd_publish_battery(struct r36_sysd_state *st)
 
 static int r36_sysd_clean_shutdown(struct r36_sysd_state *st)
 {
+    r36_sysd_save_config(st);
     st->sleeping = 1;
     st->last_amp_enable = -1;
     st->last_bl_raw = -1;
@@ -218,6 +265,7 @@ static int r36_sysd_clean_shutdown(struct r36_sysd_state *st)
 
 static int r36_sysd_init(struct r36_sysd_state *st, const struct r36_sysd_paths *custom_paths)
 {
+    int init_vol = 60, init_brt = 80;
     if (!st)
         return -1;
     memset(st, 0, sizeof(*st));
@@ -226,7 +274,8 @@ static int r36_sysd_init(struct r36_sysd_state *st, const struct r36_sysd_paths 
     else
         r36_sysd_default_paths(&st->paths);
 
-    r36_direct_keys_policy_init(&st->keys, 60, 80);
+    r36_sysd_load_config(st, &init_vol, &init_brt);
+    r36_direct_keys_policy_init(&st->keys, init_vol, init_brt);
     r36_battery_monitor_init(&st->bat);
     st->hp_active_low = 1;
     st->last_amp_enable = -1;
@@ -249,9 +298,11 @@ static void r36_sysd_process_action(struct r36_sysd_state *st, enum r36_direct_a
     switch (act) {
     case R36_DIRECT_ACTION_VOLUME_CHANGED:
         (void)r36_sysd_apply_speaker_amp(st);
+        r36_sysd_save_config(st);
         break;
     case R36_DIRECT_ACTION_BRIGHTNESS_CHANGED:
         (void)r36_sysd_apply_backlight(st);
+        r36_sysd_save_config(st);
         break;
     case R36_DIRECT_ACTION_SLEEP_TOGGLE:
         st->sleeping = !st->sleeping;
