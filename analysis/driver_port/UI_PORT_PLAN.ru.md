@@ -94,6 +94,29 @@
   + кадров. Новый candidate ID и новый receipt (тот же ID запрещён — receipt
   существует). Консоль в stock; keepawake перезапущен (авто-выключение отключено
   по указанию пользователя).
+- Hardware-trials `kernel_cold_ui_flip_v2` (run_id 9739eb57ed6d4ba78a00d3286f01abef)
+  и `kernel_cold_ui_flip_v3` (run_id bcb4e228a6ec4cd788071d984ec01aba) выполнены:
+  watchdog90 позволил PID1 дойти до `finish_log` и записать `proof.txt`
+  (`cold_boot_verified=true`, `native_restore_verified=true`, `stock_restored=true`),
+  но метки в `.kernel.log` (`stage=nav_starting key=1627586579 ->
+  stage=nav_incomplete pid=24 keys=0 ready1=0 ready0=0 -> stage=report_sizes ui=0`)
+  показали отказ `navigation_start` по таймауту 3 с при живом `r36-navigation-keys`
+  (`pid=24`) и пустых `ui-report.txt`/`ui-keys.txt`.
+- Найдена и устранена точная причина регрессии `v2`/`v3`: ядро запускает `/init`
+  без `/dev/console` (`Warning: unable to open an initial console.`), с закрытыми
+  `fd 0..2`. Добавленный в `v2` вызов `kfd = open("/dev/kmsg", ...)` занимал `fd = 0`,
+  сдвигая `fd = open("/tmp/ui-report.txt", ...)` на `fd = 1`, после чего
+  `dup2(1, 1); dup2(1, 2); close(1);` закрывал `stdout` (`fd = 1`) в `PID 1` и
+  аналогично закрывал `fd = 1` (`log = 1`) в дочернем процессе `navigation_start`,
+  где `/dev/input/event0` (`O_RDONLY`) занимал `fd = 1` и ломал
+  `dprintf(1, "keys_diagnostic_ready=1\n")` (`EBADF`).
+- В `ui_console_init.c` после монтирования `devtmpfs` дескрипторы `0..2`
+  резервируются на `/dev/null`, `kfd` переводится на `fd >= 3` (`F_DUPFD_CLOEXEC`),
+  добавлена защита `if(fd>2)close(fd);` и тест
+  `test_stdio_fds_reserved_before_kmsg_and_report_dup2` (`279 passed, 14 skipped`).
+  Собраны и проверены офлайн `payload/kernel_ui_flip_v4` (`initramfs 34521 <= 34768`)
+  и `payload/kernel_cold_ui_flip_v4` (`watchdog_seconds=90`, эмуляции 8+1 PASS).
+  Следующий шаг — hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
 
 ## UI directional navigation v1 accepted; black-square defect open
 

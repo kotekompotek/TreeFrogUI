@@ -141,19 +141,24 @@ static int ram_settings(void)
 }
 int main(void)
 {
-    struct utsname u;char id[80]="missing";char mark[96];int fd,attempt,status=0,done=0,module=-1,childlog=-1,kfd=-1;
+    struct utsname u;char id[80]="missing";char mark[200];int fd,attempt,status=0,done=0,module=-1,childlog=-1,kfd=-1;
     pid_t child=-1,got;int ipc=-1;key_t key;volatile unsigned int *keys=(void *)-1;
     mkdir("/dev",0755);mkdir("/proc",0755);mkdir("/sys",0755);mkdir("/sd",0755);mkdir("/tmp",01777);mkdir("/mnt",0755);
     if(mount("devtmpfs","/dev","devtmpfs",0,NULL)||mount("proc","/proc","proc",0,NULL)||mount("sysfs","/sys","sysfs",0,NULL)||uname(&u))goto wait_reset;
+    /* Initramfs starts PID1 without /dev/console (fds 0..2 closed); reserve
+     * 0..2 on /dev/null and keep kfd>=3 so open+dup2(fd,1)+close(fd) never
+     * closes stdout/stderr in PID1 or in navigation_start's child. */
+    while((fd=open("/dev/null",O_RDWR))>=0&&fd<3){}if(fd>=3)close(fd);
     kfd=open("/dev/kmsg",O_WRONLY|O_CLOEXEC);
+    if(kfd>=0&&kfd<3){fd=fcntl(kfd,F_DUPFD_CLOEXEC,3);if(fd>=3){close(kfd);kfd=fd;}else{close(kfd);kfd=-1;}}
     mark_userspace();
     for(attempt=0;attempt<10;attempt++){if(!mount("/dev/mmcblk0p1","/sd","vfat",MS_RDONLY|MS_NOATIME,"iocharset=iso8859-1"))break;sleep(1);}
     if(attempt==10){kmsg_mark(kfd,"stage=sd_mount_failed");goto wait_reset;}
     fd=open("/sd/cubegm/r36-run-id.txt",O_RDONLY|O_CLOEXEC);if(fd>=0){ssize_t n=read(fd,id,sizeof(id)-1);if(n>0){id[n]=0;id[strcspn(id,"\r\n")]=0;}close(fd);}
     fd=open("/tmp/ui-report.txt",O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0600);if(fd<0)goto finish_sd;
-    if(dup2(fd,1)<0||dup2(fd,2)<0){close(fd);goto finish_sd;}close(fd);setvbuf(stdout,NULL,_IOLBF,0);
+    if(dup2(fd,1)<0||dup2(fd,2)<0){if(fd>2)close(fd);goto finish_sd;}if(fd>2)close(fd);setvbuf(stdout,NULL,_IOLBF,0);
     printf("R36 UNCHANGED UI PROBE V1\nrun_id=%s\nrelease=%s\nversion=%s\n",id,u.release,u.version);
-    kmsg_mark(kfd,"stage=report_open");
+    snprintf(mark,sizeof(mark),"stage=report_open rel=%.40s",u.release);kmsg_mark(kfd,mark);
     if(strncmp(u.release,"7.2.0-rc5-r36",sizeof("7.2.0-rc5-r36")-1))goto finish_log;
     if(symlink("/sd","/mnt/sdcard")||symlink("/sd/rootfs/lib","/lib")||symlink("/sd/rootfs/usr","/usr")||
        symlink("/sd/rootfs/bin","/bin")||symlink("/sd/rootfs/sbin","/sbin")||symlink("/sd/rootfs/etc","/etc")){
@@ -165,6 +170,7 @@ int main(void)
     fd=open("/tmp/joy_key",O_CREAT|O_EXCL|O_WRONLY,0600);if(fd<0)goto finish_log;close(fd);
     key=ftok("/tmp/joy_key",'a');if(key==(key_t)-1)goto finish_log;
 #ifdef R36_UI_NAVIGATION
+    snprintf(mark,sizeof(mark),"stage=nav_starting key=%ld",(long)key);kmsg_mark(kfd,mark);
     if(navigation_start(key))goto finish_log;
 #else
     ipc=shmget(key,4,IPC_CREAT|IPC_EXCL|0600);if(ipc<0)goto finish_log;
@@ -239,6 +245,14 @@ int main(void)
     printf("ui_child_exit=%d signalled=%d\n",WIFEXITED(status)?WEXITSTATUS(status):-1,!WIFEXITED(status));
 finish_log:
 #ifdef R36_UI_NAVIGATION
+    if(!navigation_ready){
+        struct stat key_file;char sample[48];long key_bytes=-1;int has_ready=0,has_zero=0;ssize_t sample_bytes;
+        fd=open("/tmp/ui-keys.txt",O_RDONLY|O_CLOEXEC);
+        if(fd>=0){sample_bytes=read(fd,sample,sizeof(sample)-1);close(fd);if(sample_bytes>0){sample[sample_bytes]=0;has_ready=strstr(sample,"keys_diagnostic_ready=1")!=NULL;has_zero=strstr(sample,"keys_diagnostic_ready=0")!=NULL;}}
+        if(stat("/tmp/ui-keys.txt",&key_file)==0)key_bytes=(long)key_file.st_size;
+        snprintf(mark,sizeof(mark),"stage=nav_incomplete pid=%ld keys=%ld ready1=%d ready0=%d",
+                 (long)navigation_pid,key_bytes,has_ready,has_zero);kmsg_mark(kfd,mark);
+    }
     if(navigation_stop())goto wait_reset;
     kmsg_mark(kfd,"stage=nav_stopped");
 #endif
@@ -250,6 +264,15 @@ finish_log:
     umount("/sd/frogui/settings.txt");
     /* No child is allowed to write SD during the test. Re-enable writes only
      * after all children have exited, solely to commit our bounded reports. */
+    {
+        struct stat report_file;long report_bytes=-1,key_bytes=-1,child_bytes=-1;
+        if(stat("/tmp/ui-report.txt",&report_file)==0)report_bytes=(long)report_file.st_size;
+        if(stat("/tmp/ui-keys.txt",&report_file)==0)key_bytes=(long)report_file.st_size;
+        if(stat("/tmp/ui-child.txt",&report_file)==0)child_bytes=(long)report_file.st_size;
+        snprintf(mark,sizeof(mark),"stage=report_sizes ui=%ld keys=%ld child=%ld",
+                 report_bytes,key_bytes,child_bytes);
+        kmsg_mark(kfd,mark);
+    }
     if(!mount(NULL,"/sd","vfat",MS_REMOUNT,"iocharset=iso8859-1")){
         kmsg_mark(kfd,"stage=sd_rw");
         fd=open("/sd/cubegm/r36-own-kernel-proof.txt",O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC,0644);

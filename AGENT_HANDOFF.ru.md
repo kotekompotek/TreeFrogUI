@@ -111,6 +111,53 @@
   init/child и факт отображения UI; новый candidate ID и новый receipt (старый
   receipt существует, повтор с тем же ID запрещён). Консоль сейчас в stock,
   keepawake перезапущен — авто-выключение отключено.
+- **Trials `kernel_cold_ui_flip_v2` и `kernel_cold_ui_flip_v3` ВЫПОЛНЕНЫ:**
+  - `v2` (`run_id 9739eb57ed6d4ba78a00d3286f01abef`, `session 0xfc5b7851`,
+    `watchdog_seconds=90`): впервые у flip `cold_boot_verified=true`,
+    `native_restore_verified=true`, `stock_restored=true`, `proof.txt` записан,
+    но в `.kernel.log` цепочка `stage=report_open -> nav_stopped -> sd_rw ->
+    reports_written -> waiting_reset` (без `setup_done`/`module_loaded`/`child_forked`),
+    `.ui.txt=0B`, `.ui-keys.txt=0B`, камера 2x60 кадров без изменений.
+  - `v3` (`run_id bcb4e228a6ec4cd788071d984ec01aba`, `session 0x18bc2207`,
+    `watchdog_seconds=90`, детальные метки навигации и размеров):
+    `stage=report_open rel=7.2.0-rc5-r36disp -> stage=nav_starting key=1627586579 ->
+    stage=nav_incomplete pid=24 keys=0 ready1=0 ready0=0 -> stage=nav_stopped ->
+    stage=report_sizes ui=0 -> stage=sd_rw -> stage=reports_written ->
+    stage=waiting_reset`. Бридж `r36-navigation-keys` (`pid=24`) остался жив на
+    протяжении всех 3 с ожидания, но `ui-keys.txt` и `ui-report.txt` остались `0B`.
+- **Точная корневая причина регрессии `v2`/`v3` (доказана):**
+  - Ядро стартует `/init` до монтирования `devtmpfs`, без `/dev/console`
+    (`Warning: unable to open an initial console.`), поэтому в `PID 1`
+    стандартные дескрипторы `0, 1, 2` изначально закрыты.
+  - В `v1` вызова `kfd = open("/dev/kmsg", ...)` не было: `open("/tmp/ui-report.txt")`
+    получал `fd = 0`, а `dup2(0, 1); dup2(0, 2); close(0);` оставлял открытыми
+    `fd = 1` и `fd = 2`.
+  - В `v2`/`v3` добавленный до отчёта `kfd = open("/dev/kmsg", O_WRONLY|O_CLOEXEC)`
+    занял свободный `fd = 0`, из-за чего `fd = open("/tmp/ui-report.txt", ...)`
+    получил `fd = 1`, а `dup2(1, 1); dup2(1, 2); close(1);` **закрыл `stdout`
+    (`fd = 1`)** в `PID 1`.
+  - Из-за закрытого `fd = 1` в `PID 1`: (1) все `printf`/`puts` в `stdout`
+    возвращали `EBADF` (`ui-report.txt` = `0B`); (2) в `navigation_start(key)`
+    вызов `log = open("/tmp/ui-keys.txt", ...)` также получал свободный `fd = 1`,
+    и `close(log)` в дочернем процессе закрывал `fd = 1`. После `execl` бридж
+    `r36-navigation-keys` открывал `/tmp/r36-legacy-keys.lock` на `fd = 0`, а
+    `/dev/input/event0` (`O_RDONLY`) — на `fd = 1`, поэтому
+    `dprintf(1, "keys_diagnostic_ready=1\n")` писал в `event0` (`EBADF`),
+    оставляя `ui-keys.txt` пустым (`0B`) при живом процессе `pid=24`.
+- **Fix и кандидат `kernel_cold_ui_flip_v4` ГОТОВЫ (offline verified):**
+  - В `scripts/peripheral_lab/ui_console_init.c` сразу после монтирования
+    `devtmpfs` дескрипторы `0..2` резервируются на `/dev/null`, `kfd` переводится
+    на `fd >= 3` через `fcntl(kfd, F_DUPFD_CLOEXEC, 3)`, а закрытие исходного
+    `fd` отчёта защищено условием `if(fd>2)close(fd);`. Добавлена метка
+    `stage=report_sizes ui=%ld keys=%ld child=%ld`.
+  - Регрессионный тест `test_stdio_fds_reserved_before_kmsg_and_report_dup2` в
+    `scripts/peripheral_lab/test_ui_console_safety.py`; полный pytest:
+    `279 passed, 14 skipped`.
+  - Профиль `payload/kernel_ui_flip_v4` (`initramfs 34521 <= 34768`,
+    `init_sha256 b8f5fa39...`, `kernel_sha256 60e24b80...`) и cold-кандидат
+    `payload/kernel_cold_ui_flip_v4` (`watchdog_seconds=90`, `sha256` проверен,
+    `cold_restore_emulation` 8/8 PASS, `cold_restore_native_fallback` 1/1 PASS).
+  - **Следующее:** hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
 
 ## UI navigation v1 принят по направлениям; rendering defect открыт
 

@@ -78,7 +78,42 @@
       "instrumentation": "/dev/kmsg PID1 marks into retained ring0x2f91000 -> trial .kernel.log: sd_mount_failed/report_open/setup_done/module_loaded/child_forked/setpgid_failed/kmsg child samples state+threads+wchan+syscall at ticks40,120/window_done/killing_child/reap_child_failed before unchanged goto wait_reset/reaping_helpers/reaped/nav_stopped/sd_rw|sd_remount_failed/reports_written/waiting_reset; NOR stage==6 gates untouched",
       "offline": "cold_restore_emulation8 rows PASS + native_fallback1 row PASS; test_drm_flip_support3/3; pytest278passed/14skipped"
     },
-    "next": "hardware trial run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v2 with camera; analyze receipt + .kernel.log mark lines + frames to localize init/child stop point and UI presentation; new candidate ID and receipt"
+    "trial_v2": {
+      "receipt": "analysis/boot_crypto/kernel_cold_ui_flip_v2_trial.json",
+      "run_id": "9739eb57ed6d4ba78a00d3286f01abef",
+      "session_tag": "0xfc5b7851",
+      "cold_boot_verified": true,
+      "native_restore_verified": true,
+      "stock_restored": true,
+      "kmsg_chain": "report_open -> nav_stopped -> sd_rw -> reports_written -> waiting_reset",
+      "probe_files": "proof.txt 173B; ui.txt 0B; ui-keys.txt 0B; ui-child.txt absent",
+      "camera_observation": "120 frames (2x60s); 0 frame changes"
+    },
+    "trial_v3": {
+      "profile": "payload/kernel_ui_flip_v3",
+      "cold": "payload/kernel_cold_ui_flip_v3",
+      "receipt": "analysis/boot_crypto/kernel_cold_ui_flip_v3_trial.json",
+      "run_id": "bcb4e228a6ec4cd788071d984ec01aba",
+      "session_tag": "0x18bc2207",
+      "cold_boot_verified": true,
+      "native_restore_verified": true,
+      "stock_restored": true,
+      "kmsg_chain": "report_open rel=7.2.0-rc5-r36disp -> nav_starting key=1627586579 -> nav_incomplete pid=24 keys=0 ready1=0 ready0=0 -> nav_stopped -> report_sizes ui=0 -> sd_rw -> reports_written -> waiting_reset",
+      "probe_files": "proof.txt 173B; ui.txt 0B; ui-keys.txt 0B; ui-child.txt absent",
+      "camera_observation": "120 frames (2x60s); 0 frame changes"
+    },
+    "v2_v3_regression_root_cause": "Kernel starts /init without /dev/console (fds 0..2 closed). Adding kfd=open('/dev/kmsg',...) before /tmp/ui-report.txt occupied fd 0, shifting ui-report.txt open() to fd 1; subsequent dup2(1,1); dup2(1,2); close(1) closed stdout (fd 1) in PID1 (causing all printf/puts to fail with EBADF and ui-report.txt=0B) and caused navigation_start's log=open('/tmp/ui-keys.txt') to also get fd 1 and close(1) in the bridge child, where /dev/input/event0 (O_RDONLY) took fd 1 and made dprintf(1,'keys_diagnostic_ready=1\\n') fail with EBADF while pid=24 stayed alive in poll().",
+    "candidate_v4": {
+      "profile": "payload/kernel_ui_flip_v4",
+      "cold": "payload/kernel_cold_ui_flip_v4",
+      "watchdog_seconds": 90,
+      "init_sha256": "b8f5fa39821a4b4ab35bc017049d82d34ff17c49276079e2321e45a73b2851f6",
+      "kernel_sha256": "60e24b80a5878b489492b3e415f6f7d5990ee649f6282da6ffc5887ae37732d3",
+      "initramfs_bytes": 34521,
+      "fix": "Reserve fds 0..2 on /dev/null right after devtmpfs mount, move kfd>=3 via fcntl(F_DUPFD_CLOEXEC,3), and guard close(fd) with if(fd>2)close(fd); add report_sizes ui/keys/child mark and regression test test_stdio_fds_reserved_before_kmsg_and_report_dup2",
+      "offline": "cold_restore_emulation 8/8 PASS + native_fallback 1/1 PASS; pytest 279 passed, 14 skipped"
+    },
+    "next": "hardware trial run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v4 with camera; verify navigation_start succeeds, module/child start, probe logs populate, and observe screen frames"
   },
   "video": {
     "source": "scripts/peripheral_lab/video_drm_backend.c",

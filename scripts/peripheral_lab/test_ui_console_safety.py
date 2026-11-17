@@ -54,3 +54,15 @@ def test_direct_exec_preserves_original_interpreter_and_resource_paths():
     for name in ('bin','sbin','etc'):
         assert f'symlink("/sd/rootfs/{name}","/{name}")' in text
     assert '"/sbin/init"' not in text
+
+
+def test_stdio_fds_reserved_before_kmsg_and_report_dup2():
+    text=(ROOT/'scripts/peripheral_lab/ui_console_init.c').read_text()
+    devtmpfs=text.index('mount("devtmpfs","/dev"')
+    devnull=text.index('open("/dev/null",O_RDWR)')
+    kmsg=text.index('open("/dev/kmsg",O_WRONLY|O_CLOEXEC)')
+    report=text.index('open("/tmp/ui-report.txt"')
+    assert devtmpfs < devnull < kmsg < report
+    assert 'F_DUPFD_CLOEXEC,3' in text
+    assert 'if(fd>2)close(fd);' in text
+
