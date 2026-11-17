@@ -160,13 +160,16 @@
   - **Следующее (вечером при включении консоли):** перезапустить `keepawake` и
     выполнить hardware-trial `payload/kernel_cold_ui_flip_v4` с камерой.
 - **Выполнены 3 офлайн-юнита для следующих этапов порта (`290 passed, 14 skipped`):**
-  1. **USB Composite `MTP + ADB` (`FunctionFS`) (`00c1792`):**
-     `scripts/peripheral_lab/usb_ffs_mtp_adb.h` + `test_usb_ffs_mtp_adb.py`.
+  1. **USB Composite `MTP + ADB` (`FunctionFS`):**
+     `scripts/peripheral_lab/usb_ffs_mtp_adb.h`, `scripts/peripheral_lab/usb_mtp_adb_service.c`,
+     `scripts/peripheral_lab/vm_build_kernel.sh` (`--enable USB_CONFIGFS_F_FS`),
+     `scripts/peripheral_lab/test_usb_ffs_mtp_adb.py`.
      Проверен бюджет endpoint'ов `drivers/usb/musb/hc16xx.c` (`3 TX + 2 RX <= 5 TX + 5 RX`
-     при штатном `VID 0x18d1 / PID 0x4e22`), сформированы `FunctionFS` v2 дескрипторы
+     при штатном `VID 0x18d1 / PID 0x4e22`), реализованы `FunctionFS` v2 дескрипторы
      для `ffs.mtp` (FS/HS + MS OS `"MTP"`) и `ffs.adb` (`0xFF/0x42/0x01`),
-     userspace-отправка `r36_mtp_ffs_send_file_with_header` для переноса `tfmtp`
-     без `usb_f_mtp.ko`, и конечный автомат протокола `ADB` (`CNXN/OPEN/WRTE/OKAY/CLSE`).
+     полная настройка `configfs` + `functionfs` со строгим порядком записи обоих `ep0`
+     до привязки `UDC`, и мультиплексированный сервис `r36_mtp_adb_poll_once`,
+     одновременно обслуживающий `MTP` и `ADB` (`CNXN`, `shell:`, `sync:` `SEND`/`STAT`/`RECV`/`QUIT`).
   2. **12-кнопочный игровой ввод (`legacy_keys -> SysV -> libretro`) (`398a711`):**
      `scripts/peripheral_lab/prepare_ui_gameplay_input.py` + `test_ui_gameplay_input.py`.
      Строгая сверка всех 12 игровых кнопок (`UP/RIGHT/DOWN/LEFT/A/B/X/Y/START/SELECT/L1/R1`)

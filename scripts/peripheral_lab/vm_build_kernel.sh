@@ -64,7 +64,7 @@ if [ "$PROFILE" = usb ]; then
         --enable USB --enable USB_GADGET --enable USB_MUSB_HDRC --enable USB_MUSB_HC16XX \
         --disable USB_MUSB_DUAL_ROLE --disable USB_MUSB_HOST --enable USB_MUSB_GADGET \
         --enable MUSB_PIO_ONLY --enable PHY_HICHIP_USB \
-        --enable USB_CONFIGFS --enable USB_CONFIGFS_ACM --enable PRINTK_TIME \
+        --enable USB_CONFIGFS --enable USB_CONFIGFS_ACM --enable USB_CONFIGFS_F_FS --enable PRINTK_TIME \
         --enable EXPERT --disable VT --disable VT_CONSOLE \
         --disable HID_SUPPORT --disable HID --disable USB_HID \
         --disable USB_KBD --disable USB_MOUSE --disable USB_HIDDEV \

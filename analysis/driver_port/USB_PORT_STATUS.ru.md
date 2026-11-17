@@ -94,7 +94,23 @@ host_cleanup_wrote_boot_file=false. Это НЕ MTP/host/OTG/background acceptan
     OKAY -> CLSE`, проверка `magic` и контрольной суммы).
 - Добавлен тест `scripts/peripheral_lab/test_usb_ffs_mtp_adb.py` (нативная C-проверка
   и кросс-компиляция `zig cc -target mipsel-linux.4.4-musleabi -Werror`): PASS.
-  Аппаратная приёмка `MTP + ADB` на консоли впереди.
+- Реализован полный композитный сервис `scripts/peripheral_lab/usb_mtp_adb_service.c`
+  и включён `--enable USB_CONFIGFS_F_FS` в `scripts/peripheral_lab/vm_build_kernel.sh`:
+  - Настройка `configfs` (`/sys/kernel/config/usb_gadget/r36composite`,
+    `0x18d1:0x4e22`, OS descriptors `MSFT100`), создание и линковка `functions/ffs.mtp`
+    и `functions/ffs.adb`, монтирование `functionfs` в `/dev/ffs-mtp` и `/dev/ffs-adb`.
+  - Строгий порядок инициализации (`f_fs.c`): запись `FunctionFS` v2 дескрипторов и
+    строк в оба `ep0` и открытие всех 5 дата-endpoint'ов (`/dev/ffs-mtp/ep1..3`,
+    `/dev/ffs-adb/ep1..2`) **до** привязки `UDC` (`musb-hdrc.0.auto`), плюс чистый
+    `r36_teardown_mtp_adb_gadget`.
+  - Мультиплексированный цикл `r36_mtp_adb_poll_once`, одновременно обслуживающий
+    контейнеры `MTP` (`OpenSession`, `CloseSession`, `GetDeviceInfo`, `GetStorageIDs`)
+    и сессии `ADB` (`CNXN`, `OPEN("shell:...")`, `OPEN("sync:")` с файловыми
+    операциями `SEND`/`adb push`, `STAT`, `RECV`/`adb pull`, `QUIT` и защитой от
+    обхода путей `..`).
+  - Проверены отказ на каждом шаге инициализации, отсутствие/неоднозначность `UDC`,
+    одновременный обмен `MTP + ADB` и сборка статического MIPS32r2 бинарника
+    `r36-usb-mtp-adb.elf`. Аппаратная приёмка `MTP + ADB` на консоли впереди.
 
 Первый hardware кандидат отказал ENOENT в configfs link: kern_path разрешает
 relative target от syscall cwd, исправлен absolute target. Затем Windows watcher

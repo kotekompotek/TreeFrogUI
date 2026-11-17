@@ -263,6 +263,7 @@
     "new_kernel_MTP_verified": false,
     "new_kernel_host_OTG_verified": false,
     "ffs_mtp_adb_header": "scripts/peripheral_lab/usb_ffs_mtp_adb.h",
+    "ffs_mtp_adb_service": "scripts/peripheral_lab/usb_mtp_adb_service.c",
     "ffs_mtp_adb_test": "scripts/peripheral_lab/test_usb_ffs_mtp_adb.py",
     "ffs_mtp_adb_offline_verified": true,
     "existing_implementation": "Isolated USB0 CDC/PIO build and offline preflight PASS. Reviewed IRQ-depth callbacks removed, VT/input/HID excluded. Hardware causality, enumeration and PING/PONG remain unverified.",
