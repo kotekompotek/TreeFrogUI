@@ -1,5 +1,26 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Аппаратные trial-ы полной сессии (`v5`–`v16`): меню TreeFrogUI, крестовина и USB MTP работают; `adb` и полная калибровка кнопок в работе
+
+- **Дисплей и меню TreeFrogUI (`v5`–`v8`):**
+  - В [r36-full.dts](file:///d:/r36s-/scripts/kernel_lab/r36-full.dts) включён `&r36_display { status = "okay"; };` (и обновлена проверка в [test_full_kernel_profile.py](file:///d:/r36s-/scripts/peripheral_lab/test_full_kernel_profile.py)).
+  - На реальной консоли (наблюдение пользователя, без камеры): `r36_hc16xx_drm.ko` + `driver_r36_combined.so` + `picoarch` + `frogui_libretro.so` загружают меню TreeFrogUI (`640x480`).
+- **Ввод / крестовина (`v8`):**
+  - В [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) добавлены ожидание `/tmp/joy_key` до 1 с и передача `/dev/input/event0`, `/dev/input/event1` при запуске `r36-legacy-keys` / `r36-navigation-keys`.
+  - В `r36-ui-log.txt`: `SF3000 input: joy_key shm OK, initial keys=0x00000000`; пользователь подтвердил, что **крестовина работает** в меню. Остальные кнопки (`A/B/X/Y/L1/R1/Start/Select`) пока не замаплены, так как активна только 4-кнопочная `r36-navigation.map` (`712..715`); нужна калибровка полной карты `evdev-to-legacy.map` для `r36-legacy-keys`.
+- **USB Composite MTP + ADB (`v6`–`v16`):**
+  - В [usb_ffs_mtp_adb.h](file:///d:/r36s-/scripts/peripheral_lab/usb_ffs_mtp_adb.h) исправлены:
+    - `dwLength` в `ms_os_header` (`sizeof(header) + sizeof(ext_compat) = 35` вместо `40`, устраняло `EINVAL` на `/dev/ffs-mtp/ep0` в `f_fs.c`);
+    - `r36_adb_validate`: разрешён `data_check == 0` для `A_CNXN` при `arg0 >= 0x01000001` (`A_VERSION_SKIP_CHECKSUM` в `adb` v36.0.0).
+  - В [usb_mtp_adb_service.c](file:///d:/r36s-/scripts/peripheral_lab/usb_mtp_adb_service.c):
+    - Вместо `poll()` по bulk-эндпоинтам (у `ffs_epfile_operations` в Linux 7.2 нет `.poll`) запущены отдельные потоки: `r36_ep0_thread` (обработка `FUNCTIONFS_SETUP`, включая MTP `Get Device Status` `0x67` и `Cancel` `0x64`), `r36_adb_thread` (буферы кратно 512 Б + `popen` в `default_shell_cb`) и цикл MTP.
+    - Реализованы MTP-операции `GetDevicePropDesc` (`0x1014` для `0xD402`) и `GetObjectPropsSupported` (`0x9801`).
+  - **Подтверждено на консоли (`v12`/`v13`):** в Windows `USB\VID_18D1&PID_4E22\R36S-MTP-ADB` определяется (`WUDFWpdMtp` + `WinUSB`), и **MTP полностью работает** — через `Shell.Application` получено хранилище `R36S -> SD card` и полный список файлов/каталогов корня SD-карты.
+  - **`adb` пока остаётся `offline`** (`ADB_TRACE` показал отправку `CNXN` 24+291 и чтение ответа 24+77 в `v13`, но `adb` не перешёл в `device` — требуется отдельная отладка после пробуждения пользователя).
+- **QEMU Build VM:** в [build_vm.py](file:///d:/r36s-/scripts/peripheral_lab/build_vm.py) увеличено `-smp 2` -> `-smp 6` (применится при следующем перезапуске VM).
+- **Офлайн-проверки после финальной правки:** `python -m pytest scripts -q` -> **`313 passed, 14 skipped`**.
+- **Консоль:** возвращена в сток (`stock_restored=true`), постоянный переход (`advapi32.dll`) **не выполнялся**; на стоке и в `r36_sysd.conf` автосон/автовыключение отключены (`screen_off_sec=0`, `auto_poweroff_sec=0`).
+
 ## Аппаратный trial полной сессии (`kernel_cold_full_session_v2`) — PID1 + DRM + I2S + swap + UI
 
 - В [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) добавлены: симлинк `/lib/ld.so.1 -> /mnt/sdcard/cubegm/lib/ld.so.1`, `swapon`, загрузка `r36_hc16xx_drm.ko` и `r36_hc16xx_i2s.ko` (`allow_takeover=1`), fallback на `r36-navigation-keys`/`r36-navigation.map` и `r36-sysd`/`r36-usb-mtp-adb` с SD, запись `r36-own-kernel-proof.txt` (`R36 OWN KERNEL USERSPACE REACHED`) и `r36-session-trial.txt`.

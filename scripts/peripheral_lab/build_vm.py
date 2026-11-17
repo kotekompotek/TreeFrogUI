@@ -148,7 +148,7 @@ def main():
         subprocess.run([str(qemu.parent / "qemu-img.exe"), "create", "-f", "qcow2", str(disk), "8G"], check=True)
     http_log = (WORK / "http.log").open("ab")
     server = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--serve"], stdout=http_log, stderr=subprocess.STDOUT)
-    command = [str(qemu), "-accel", args.accel, "-m", "1536", "-smp", "2",
+    command = [str(qemu), "-accel", args.accel, "-m", "1536", "-smp", "6",
                "-display", "none", "-monitor", "none", "-serial", "file:" + str(WORK / "serial.log"),
                "-kernel", str(WORK / "vmlinuz-virt"), "-initrd", str(WORK / "initramfs-virt"),
                "-append", "console=ttyS0,115200 net.ifnames=0 ip=dhcp modules=loop,squashfs,virtio_blk,virtio_net,ext4 alpine_repo=https://dl-cdn.alpinelinux.org/alpine/v3.22/main modloop=http://10.0.2.2:18280/modloop-virt apkovl=http://10.0.2.2:18280/r36-build.apkovl.tar.gz",

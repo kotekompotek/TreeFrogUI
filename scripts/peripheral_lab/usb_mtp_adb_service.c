@@ -2,6 +2,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <pthread.h>
 #include <signal.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -904,6 +906,30 @@ static int r36_mtp_handle_one(struct r36_mtp_adb_runtime *rt, const uint8_t *pkt
         r36_mtp_mark_deleted(rt, h);
         break;
     }
+    case R36_MTP_OP_GetDevicePropDesc: {
+        if (p[0] != 0xD402u) {
+            rc = R36_MTP_RC_OperationNotSupported;
+            break;
+        }
+        dlen = r36_mtp_put_u16(data, dlen, 0xD402u);
+        dlen = r36_mtp_put_u16(data, dlen, 0xFFFFu);
+        data[dlen++] = 0x00u;
+        dlen = r36_mtp_put_str(data, dlen, "R36S");
+        dlen = r36_mtp_put_str(data, dlen, "R36S");
+        data[dlen++] = 0x00u;
+        if (r36_mtp_send_container(rt->fds.mtp_in, R36_MTP_CT_DATA, op, tid, data, (uint32_t)dlen) != 0)
+            return -1;
+        break;
+    }
+    case R36_MTP_OP_GetObjectPropsSupported: {
+        static const uint16_t props[] = { 0xDC01u, 0xDC02u, 0xDC04u, 0xDC07u };
+        dlen = r36_mtp_put_u32(data, dlen, 4u);
+        for (size_t i = 0; i < 4; i++)
+            dlen = r36_mtp_put_u16(data, dlen, props[i]);
+        if (r36_mtp_send_container(rt->fds.mtp_in, R36_MTP_CT_DATA, op, tid, data, (uint32_t)dlen) != 0)
+            return -1;
+        break;
+    }
     case R36_MTP_OP_TF_Info: {
         static const char info[] = "tfmtp-ffs 1.0 remote=1\n";
         if (r36_mtp_send_container(rt->fds.mtp_in, R36_MTP_CT_DATA, op, tid, info, (uint32_t)(sizeof(info) - 1u)) != 0)
@@ -1151,6 +1177,7 @@ static int r36_adb_process_one(struct r36_mtp_adb_runtime *rt,
 }
 
 /* Multiplexed poll step servicing both MTP (ep2->ep1) and ADB (ep2->ep1) concurrently */
+#ifdef R36_USB_MTP_ADB_LIBRARY_ONLY
 static int r36_mtp_adb_poll_once(struct r36_mtp_adb_runtime *rt, int timeout_ms, r36_shell_exec_fn shell_cb)
 {
     struct pollfd pfds[2] = {
@@ -1183,30 +1210,216 @@ static int r36_mtp_adb_poll_once(struct r36_mtp_adb_runtime *rt, int timeout_ms,
     }
     return ready;
 }
+#endif
 
 #ifndef R36_USB_MTP_ADB_LIBRARY_ONLY
+static volatile sig_atomic_t g_usb_running = 1;
+
+static void r36_usb_handle_sig(int sig)
+{
+    (void)sig;
+    g_usb_running = 0;
+}
+
 static int default_shell_cb(const char *cmd, char *out, size_t cap)
 {
-    return snprintf(out, cap, "r36s:%s\n", cmd);
+    FILE *fp;
+    size_t total = 0;
+
+    if (!cmd || !cmd[0])
+        return snprintf(out, cap, "r36s-shell\n");
+    fp = popen(cmd, "r");
+    if (!fp)
+        return snprintf(out, cap, "popen error: %d\n", errno);
+    while (total + 1 < cap) {
+        size_t n = fread(out + total, 1, cap - 1 - total, fp);
+        if (n == 0)
+            break;
+        total += n;
+    }
+    out[total] = '\0';
+    pclose(fp);
+    return (int)total;
+}
+
+struct r36_ffs_ctrl_req {
+    uint8_t  bRequestType;
+    uint8_t  bRequest;
+    uint16_t wValue;
+    uint16_t wIndex;
+    uint16_t wLength;
+} __attribute__((packed));
+
+struct r36_ffs_event {
+    struct r36_ffs_ctrl_req setup;
+    uint8_t type;
+    uint8_t pad[3];
+} __attribute__((packed));
+
+static void r36_handle_ep0_event(int ep0_fd, const struct r36_ffs_event *ev)
+{
+    if (ev->type != 4 /* FUNCTIONFS_SETUP */)
+        return;
+    const struct r36_ffs_ctrl_req *s = &ev->setup;
+    if (s->bRequestType & 0x80u) {
+        if (s->bRequest == 0x67u && s->wLength >= 4) {
+            uint8_t status_ok[4] = { 0x04, 0x00, 0x01, 0x20 };
+            (void)write(ep0_fd, status_ok, sizeof(status_ok));
+            return;
+        }
+        /* Stall unsupported IN control request */
+        (void)read(ep0_fd, NULL, 0);
+    } else {
+        if (s->wLength == 0) {
+            (void)write(ep0_fd, "", 0);
+        } else {
+            uint8_t tmp[256];
+            size_t want = s->wLength < sizeof(tmp) ? s->wLength : sizeof(tmp);
+            (void)read(ep0_fd, tmp, want);
+        }
+    }
+}
+
+static void *r36_ep0_thread(void *arg)
+{
+    struct r36_mtp_adb_runtime *rt = (struct r36_mtp_adb_runtime *)arg;
+    while (g_usb_running) {
+        struct pollfd pfds[2] = {
+            { .fd = rt->fds.mtp_ep0, .events = POLLIN, .revents = 0 },
+            { .fd = rt->fds.adb_ep0, .events = POLLIN, .revents = 0 },
+        };
+        int rc = poll(pfds, 2, 250);
+        if (rc <= 0)
+            continue;
+        for (int i = 0; i < 2; i++) {
+            if (!(pfds[i].revents & POLLIN))
+                continue;
+            struct r36_ffs_event evs[4];
+            ssize_t n = read(pfds[i].fd, evs, sizeof(evs));
+            if (n > 0) {
+                size_t cnt = (size_t)n / sizeof(evs[0]);
+                for (size_t k = 0; k < cnt; k++)
+                    r36_handle_ep0_event(pfds[i].fd, &evs[k]);
+            }
+        }
+    }
+    return NULL;
+}
+
+static void *r36_adb_thread(void *arg)
+{
+    struct r36_mtp_adb_runtime *rt = (struct r36_mtp_adb_runtime *)arg;
+    uint8_t hdr_buf[512];
+    uint8_t payload[R36_ADB_MAXDATA + 512];
+
+    while (g_usb_running) {
+        struct r36_adb_msg hdr;
+        ssize_t n = read(rt->fds.adb_out, hdr_buf, sizeof(hdr_buf));
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            usleep(50000);
+            continue;
+        }
+        if (n < (ssize_t)sizeof(hdr)) {
+            usleep(20000);
+            continue;
+        }
+        memcpy(&hdr, hdr_buf, sizeof(hdr));
+        if (hdr.data_length > R36_ADB_MAXDATA) {
+            usleep(20000);
+            continue;
+        }
+        size_t got = (size_t)n - sizeof(hdr);
+        if (got > 0)
+            memcpy(payload, hdr_buf + sizeof(hdr), got);
+        while (got < hdr.data_length && g_usb_running) {
+            size_t rem = hdr.data_length - got;
+            size_t want = ((rem + 511u) / 512u) * 512u;
+            if (want > sizeof(payload) - got)
+                want = sizeof(payload) - got;
+            ssize_t pn = read(rt->fds.adb_out, payload + got, want);
+            if (pn < 0) {
+                if (errno == EINTR)
+                    continue;
+                break;
+            }
+            if (pn == 0)
+                break;
+            got += (size_t)pn;
+        }
+        if (got < hdr.data_length)
+            continue;
+        (void)r36_adb_process_one(rt, &hdr, hdr.data_length ? payload : NULL, default_shell_cb);
+    }
+    return NULL;
 }
 
 int main(void)
 {
     struct r36_mtp_adb_runtime rt;
+    int setup_rc, open_rc;
+    FILE *lf;
+    pthread_t adb_tid, ep0_tid;
+    int adb_thread_started = 0, ep0_thread_started = 0;
+
+    signal(SIGTERM, r36_usb_handle_sig);
+    signal(SIGINT, r36_usb_handle_sig);
+
     memset(&rt, 0, sizeof(rt));
     r36_init_composite_fds(&rt.fds);
     rt.mtp_legacy_fd = -1;
     snprintf(rt.mtp_root, sizeof(rt.mtp_root), "/mnt/sdcard");
-    if (r36_setup_mtp_adb_gadget(&rt.fds) != 0)
+    setup_rc = r36_setup_mtp_adb_gadget(&rt.fds);
+    if (setup_rc != 0) {
+        int saved_err = errno;
+        char saved_phase[64];
+        snprintf(saved_phase, sizeof(saved_phase), "%.63s", rt.fds.last_phase);
         r36_init_composite_fds(&rt.fds);
-    if (r36_open_mtp_transport(&rt) < 0 && rt.fds.adb_ep0 < 0) {
+        snprintf(rt.fds.last_phase, sizeof(rt.fds.last_phase), "%.48s(e=%d)", saved_phase, saved_err);
+    }
+    open_rc = r36_open_mtp_transport(&rt);
+
+    lf = fopen("/mnt/sdcard/cubegm/r36-usb-log.txt", "w");
+    if (lf) {
+        fprintf(lf, "setup_rc=%d phase=%s udc=%s open_rc=%d adb_ep0=%d\n",
+                setup_rc, rt.fds.last_phase, rt.fds.bound_udc, open_rc, rt.fds.adb_ep0);
+        fflush(lf);
+        fclose(lf);
+    }
+
+    if (open_rc < 0 && rt.fds.adb_ep0 < 0) {
         r36_teardown_mtp_adb_gadget(&rt.fds);
         return 1;
     }
-    for (unsigned int i = 0; i < 100; i++) {
-        if (r36_mtp_adb_poll_once(&rt, 100, default_shell_cb) < 0)
-            break;
+    if (rt.fds.mtp_ep0 >= 0 || rt.fds.adb_ep0 >= 0) {
+        if (pthread_create(&ep0_tid, NULL, r36_ep0_thread, &rt) == 0)
+            ep0_thread_started = 1;
     }
+    if (rt.fds.adb_out >= 0 && rt.fds.adb_in >= 0) {
+        if (pthread_create(&adb_tid, NULL, r36_adb_thread, &rt) == 0)
+            adb_thread_started = 1;
+    }
+    while (g_usb_running) {
+        uint8_t mtp_rx[4096];
+        if (rt.fds.mtp_out < 0) {
+            usleep(100000);
+            continue;
+        }
+        ssize_t n = read(rt.fds.mtp_out, mtp_rx, sizeof(mtp_rx));
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            usleep(50000);
+            continue;
+        }
+        if (n > 0)
+            (void)r36_mtp_handle_one(&rt, mtp_rx, (size_t)n);
+    }
+    if (adb_thread_started)
+        pthread_join(adb_tid, NULL);
+    if (ep0_thread_started)
+        pthread_join(ep0_tid, NULL);
     r36_close_mtp_transport(&rt);
     r36_teardown_mtp_adb_gadget(&rt.fds);
     return 0;

@@ -145,7 +145,7 @@ static int r36_write_tfdevice_env(const struct r36_session_cfg *c)
     return 0;
 }
 
-static pid_t r36_spawn_prog(const char *const argv[])
+static pid_t r36_spawn_prog_logged(const char *const argv[], const char *log_path)
 {
     pid_t pid = fork();
     if (pid < 0)
@@ -153,10 +153,28 @@ static pid_t r36_spawn_prog(const char *const argv[])
     if (pid == 0) {
         if (chdir("/") != 0)
             _exit(127);
+#ifndef R36_SESSION_MOCK
+        if (log_path) {
+            int lfd = open(log_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+            if (lfd >= 0) {
+                dup2(lfd, 1);
+                dup2(lfd, 2);
+                if (lfd > 2)
+                    close(lfd);
+            }
+        }
+#else
+        (void)log_path;
+#endif
         execv(argv[0], (char *const *)argv);
         _exit(127);
     }
     return pid;
+}
+
+static pid_t r36_spawn_prog(const char *const argv[])
+{
+    return r36_spawn_prog_logged(argv, NULL);
 }
 
 static int r36_run_sync_cmd(const char *const argv[])
@@ -344,16 +362,30 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
         ctx->sysd_pid = r36_spawn_prog(argv);
     }
     if (ctx->cfg.keys_bin && access(ctx->cfg.keys_bin, F_OK) == 0) {
-        const char *const argv[] = { ctx->cfg.keys_bin, ctx->cfg.keys_map, NULL };
+        const char *const argv[] = {
+            ctx->cfg.keys_bin,
+            ctx->cfg.keys_map,
+            "/dev/input/event0",
+            "/dev/input/event1",
+            NULL
+        };
         ctx->keys_pid = r36_spawn_prog(argv);
     } else if (access("/mnt/sdcard/cubegm/r36-navigation-keys", F_OK) == 0) {
         const char *const argv[] = {
             "/mnt/sdcard/cubegm/r36-navigation-keys",
             "/mnt/sdcard/cubegm/r36-navigation.map",
+            "/dev/input/event0",
+            "/dev/input/event1",
             NULL
         };
         ctx->keys_pid = r36_spawn_prog(argv);
     }
+#ifndef R36_SESSION_MOCK
+    if (ctx->keys_pid > 0) {
+        for (int w = 0; w < 20 && access("/tmp/joy_key", F_OK) != 0; w++)
+            usleep(50000);
+    }
+#endif
     if (ctx->cfg.usb_bin && access(ctx->cfg.usb_bin, F_OK) == 0) {
         const char *const argv[] = { ctx->cfg.usb_bin, NULL };
         ctx->usb_pid = r36_spawn_prog(argv);
@@ -397,7 +429,7 @@ static int r36_session_launch_ui(struct r36_session_ctx *ctx)
     const char *const argv[] = {
         ctx->cfg.picoarch_bin, ctx->cfg.frogui_core, ctx->cfg.frogui_core, NULL
     };
-    ctx->ui_pid = r36_spawn_prog(argv);
+    ctx->ui_pid = r36_spawn_prog_logged(argv, "/mnt/sdcard/cubegm/r36-ui-log.txt");
 #ifndef R36_SESSION_MOCK
     if (ctx->ui_pid > 0) {
         FILE *lf = fopen("/mnt/sdcard/cubegm/r36-session-trial.txt", "a");

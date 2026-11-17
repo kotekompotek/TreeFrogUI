@@ -169,7 +169,8 @@ static inline void r36_build_ffs_mtp_descriptors(struct r36_ffs_mtp_descriptors_
     out->hs_int_in = out->fs_int_in;
 
     out->ms_os_header = (struct r36_usb_os_desc_header){
-        .interface = 0, .dwLength = 16 + sizeof(struct r36_usb_ext_compat_desc),
+        .interface = 0,
+        .dwLength = sizeof(struct r36_usb_os_desc_header) + sizeof(struct r36_usb_ext_compat_desc),
         .bcdVersion = 0x0100, .wIndex = 0x0004, .bCount = 1, .Reserved = 0,
     };
     out->ms_os_compat.bFirstInterfaceNumber = 0;
@@ -321,8 +322,9 @@ static inline int r36_adb_validate(const struct r36_adb_msg *msg, const void *pa
     if (msg->magic != (msg->command ^ 0xffffffffu)) return -1;
     if (msg->data_length > R36_ADB_MAXDATA) return -1;
     if (msg->data_length > 0) {
+        int skip_cksum = (msg->command == R36_ADB_CNXN && msg->arg0 >= 0x01000001u && msg->data_check == 0u);
         if (!payload) return -1;
-        if (r36_adb_checksum(payload, msg->data_length) != msg->data_check) return -1;
+        if (!skip_cksum && r36_adb_checksum(payload, msg->data_length) != msg->data_check) return -1;
     } else if (msg->data_check != 0) {
         return -1;
     }
