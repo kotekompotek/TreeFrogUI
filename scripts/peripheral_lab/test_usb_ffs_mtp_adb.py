@@ -165,12 +165,20 @@ def test_composite_mtp_adb_gadget_setup_ordering_and_concurrent_session(tmp_path
     src = tmp_path / "composite_service_test.c"
     src.write_text(f'''
 #include <assert.h>
+#include <dirent.h>
+#include <direct.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
+
+static DIR *host_opendir(const char *p) {{ return opendir(p); }}
+static struct dirent *host_readdir(DIR *d) {{ return readdir(d); }}
+static int host_closedir(DIR *d) {{ return closedir(d); }}
+static int host_mkdir(const char *p) {{ return _mkdir(p); }}
 
 #define R36_USB_MTP_ADB_MOCK 1
 #define R36_USB_MTP_ADB_LIBRARY_ONLY 1
@@ -179,29 +187,30 @@ def test_composite_mtp_adb_gadget_setup_ordering_and_concurrent_session(tmp_path
 #define O_CLOEXEC 4
 #define POLLIN    1
 
-typedef int DIR;
-struct dirent {{ char d_name[128]; }};
 struct pollfd {{ int fd; short events; short revents; }};
 
-#define FD_ATTR    10
-#define FD_MTP_EP0 20
-#define FD_MTP_IN  21
-#define FD_MTP_OUT 22
-#define FD_MTP_INT 23
-#define FD_ADB_EP0 30
-#define FD_ADB_IN  31
-#define FD_ADB_OUT 32
+#define FD_ATTR       10
+#define FD_MTP_EP0    20
+#define FD_MTP_IN     21
+#define FD_MTP_OUT    22
+#define FD_MTP_INT    23
+#define FD_ADB_EP0    30
+#define FD_ADB_IN     31
+#define FD_ADB_OUT    32
+#define FD_MTP_LEGACY 40
 
+static int fake_udc_sentinel;
 static char current_attr[128];
 static int step, fail_at, udcs, scans, dir_idx;
 static int mtp_ep0_writes, adb_ep0_writes, udc_bound, udc_unbound;
 static int ffs_mtp_mounted, ffs_adb_mounted;
 static int open_mask;
+static int allow_ffs_ep0 = 1, allow_legacy_mtp = 0;
 
-static uint8_t mtp_rx_q[8][256];
-static size_t  mtp_rx_len[8];
+static uint8_t mtp_rx_q[32][512];
+static size_t  mtp_rx_len[32];
 static int     mtp_rx_head, mtp_rx_tail;
-static uint8_t mtp_tx_buf[8192];
+static uint8_t mtp_tx_buf[32768];
 static size_t  mtp_tx_len;
 
 static uint8_t adb_rx_q[16][512];
@@ -215,7 +224,16 @@ static int mock_open(const char *p, int flags) {{
     (void)flags;
     if (++step == fail_at) {{ errno = EIO; return -1; }}
     snprintf(current_attr, sizeof(current_attr), "%s", p);
-    if (!strcmp(p, "/dev/ffs-mtp/ep0")) {{ open_mask |= 1 << 0; return FD_MTP_EP0; }}
+    if (!strcmp(p, "/dev/ffs-mtp/ep0")) {{
+        if (!allow_ffs_ep0) {{ errno = ENOENT; return -1; }}
+        open_mask |= 1 << 0;
+        return FD_MTP_EP0;
+    }}
+    if (!strcmp(p, "/dev/mtp_usb")) {{
+        if (!allow_legacy_mtp) {{ errno = ENOENT; return -1; }}
+        open_mask |= 1 << 7;
+        return FD_MTP_LEGACY;
+    }}
     if (!strcmp(p, "/dev/ffs-mtp/ep1")) {{ open_mask |= 1 << 1; return FD_MTP_IN; }}
     if (!strcmp(p, "/dev/ffs-mtp/ep2")) {{ open_mask |= 1 << 2; return FD_MTP_OUT; }}
     if (!strcmp(p, "/dev/ffs-mtp/ep3")) {{ open_mask |= 1 << 3; return FD_MTP_INT; }}
@@ -227,12 +245,13 @@ static int mock_open(const char *p, int flags) {{
 
 static int mock_close(int fd) {{
     if (fd == FD_MTP_EP0) open_mask &= ~(1 << 0);
-    else if (fd == FD_MTP_IN)  open_mask &= ~(1 << 1);
-    else if (fd == FD_MTP_OUT) open_mask &= ~(1 << 2);
-    else if (fd == FD_MTP_INT) open_mask &= ~(1 << 3);
-    else if (fd == FD_ADB_EP0) open_mask &= ~(1 << 4);
-    else if (fd == FD_ADB_IN)  open_mask &= ~(1 << 5);
-    else if (fd == FD_ADB_OUT) open_mask &= ~(1 << 6);
+    else if (fd == FD_MTP_IN)     open_mask &= ~(1 << 1);
+    else if (fd == FD_MTP_OUT)    open_mask &= ~(1 << 2);
+    else if (fd == FD_MTP_INT)    open_mask &= ~(1 << 3);
+    else if (fd == FD_ADB_EP0)    open_mask &= ~(1 << 4);
+    else if (fd == FD_ADB_IN)     open_mask &= ~(1 << 5);
+    else if (fd == FD_ADB_OUT)    open_mask &= ~(1 << 6);
+    else if (fd == FD_MTP_LEGACY) open_mask &= ~(1 << 7);
     else assert(fd == FD_ATTR);
     return 0;
 }}
@@ -301,7 +320,9 @@ static ssize_t mock_read(int fd, void *buf, size_t len) {{
 }}
 
 static int mock_mkdir(const char *p, int mode) {{
-    (void)p; (void)mode;
+    (void)mode;
+    if (strstr(p, "mtp_sd"))
+        return host_mkdir(p);
     return ++step == fail_at ? -1 : 0;
 }}
 
@@ -337,22 +358,28 @@ static int mock_unlink(const char *p) {{
 }}
 
 static DIR *mock_opendir(const char *p) {{
-    static DIR d;
-    assert(!strcmp(p, "/sys/class/udc"));
-    dir_idx = 0;
-    scans++;
-    return &d;
+    if (!strcmp(p, "/sys/class/udc")) {{
+        dir_idx = 0;
+        scans++;
+        return (DIR *)&fake_udc_sentinel;
+    }}
+    return host_opendir(p);
 }}
 
 static struct dirent *mock_readdir(DIR *d) {{
-    static struct dirent e;
-    (void)d;
-    if (dir_idx++ >= udcs) return NULL;
-    snprintf(e.d_name, sizeof(e.d_name), "%s", dir_idx == 1 ? "musb-hdrc.0.auto" : "extra-udc");
-    return &e;
+    if (d == (DIR *)&fake_udc_sentinel) {{
+        static struct dirent e;
+        if (dir_idx++ >= udcs) return NULL;
+        snprintf(e.d_name, sizeof(e.d_name), "%s", dir_idx == 1 ? "musb-hdrc.0.auto" : "extra-udc");
+        return &e;
+    }}
+    return host_readdir(d);
 }}
 
-static int mock_closedir(DIR *d) {{ (void)d; return 0; }}
+static int mock_closedir(DIR *d) {{
+    if (d == (DIR *)&fake_udc_sentinel) return 0;
+    return host_closedir(d);
+}}
 static int mock_usleep(unsigned int us) {{ (void)us; return 0; }}
 
 static int mock_poll(struct pollfd *pfds, unsigned long nfds, int timeout) {{
@@ -397,15 +424,34 @@ static void reset_env(void) {{
     errno = EIO;
 }}
 
-static void push_mtp_cmd(uint16_t op, uint32_t tid, uint32_t p0, int has_p0) {{
+static void push_mtp_cmd3(uint16_t op, uint32_t tid, uint32_t p0, uint32_t p1, uint32_t p2, int np) {{
     uint8_t *dst = mtp_rx_q[mtp_rx_tail];
-    uint32_t len = has_p0 ? 16u : 12u;
+    uint32_t len = 12u + (uint32_t)np * 4u;
     uint16_t type = R36_MTP_CT_COMMAND;
     memcpy(dst + 0, &len, 4);
     memcpy(dst + 4, &type, 2);
     memcpy(dst + 6, &op, 2);
     memcpy(dst + 8, &tid, 4);
-    if (has_p0) memcpy(dst + 12, &p0, 4);
+    if (np >= 1) memcpy(dst + 12, &p0, 4);
+    if (np >= 2) memcpy(dst + 16, &p1, 4);
+    if (np >= 3) memcpy(dst + 20, &p2, 4);
+    mtp_rx_len[mtp_rx_tail++] = len;
+}}
+
+static void push_mtp_cmd(uint16_t op, uint32_t tid, uint32_t p0, int has_p0) {{
+    push_mtp_cmd3(op, tid, p0, 0u, 0u, has_p0 ? 1 : 0);
+}}
+
+static void push_mtp_data(uint16_t op, uint32_t tid, const void *payload, uint32_t plen) {{
+    uint8_t *dst = mtp_rx_q[mtp_rx_tail];
+    uint32_t len = 12u + plen;
+    uint16_t type = R36_MTP_CT_DATA;
+    assert(len <= sizeof(mtp_rx_q[0]));
+    memcpy(dst + 0, &len, 4);
+    memcpy(dst + 4, &type, 2);
+    memcpy(dst + 6, &op, 2);
+    memcpy(dst + 8, &tid, 4);
+    if (plen > 0 && payload) memcpy(dst + 12, payload, plen);
     mtp_rx_len[mtp_rx_tail++] = len;
 }}
 
@@ -539,16 +585,157 @@ int main(void) {{
     assert(!memcmp(adb_tx_pkts[2] + 8, sbody, sbody_len));
     assert(!memcmp(adb_tx_pkts[2] + 8 + sbody_len, "DONE", 4));
 
-    /* Reject path traversal ("../escape") in SEND */
+    /* Reject path traversal ("../escape") in SEND while MTP OP_TF_Info runs concurrently */
+    mtp_tx_len = 0;
     memcpy(send_stream + 0, "SEND", 4);
     uint32_t bad_len = 9u;
     memcpy(send_stream + 4, &bad_len, 4);
     memcpy(send_stream + 8, "../escape", 9);
+    push_mtp_cmd(R36_MTP_OP_TF_Info, 4u, 0u, 0);
     push_adb_pkt(R36_ADB_WRTE, 10u, 1u, send_stream, 17u);
+    /* Expect -1 on ADB SEND path traversal */
     assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == -1);
+    assert(!memcmp(mtp_tx_buf + 12, "tfmtp-ffs 1.0 remote=1\\n", 23));
+
+    /* Step 5: Full tfmtp file operations over FunctionFS (StorageInfo, mkdir via SendObjectInfo,
+     * SendObject file upload, GetObjectHandles, GetObjectInfo, GetObject, GetPartialObject, DeleteObject) */
+    snprintf(rt.mtp_root, sizeof(rt.mtp_root), "%s/mtp_sd", "{tmp_path.as_posix()}");
+    host_mkdir(rt.mtp_root);
+
+    /* GetStorageInfo */
+    mtp_tx_len = 0;
+    push_mtp_cmd(R36_MTP_OP_GetStorageInfo, 10u, R36_MTP_STORAGE_ID, 1);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint32_t st_data_len = 0; uint16_t st_rc = 0;
+    memcpy(&st_data_len, mtp_tx_buf, 4);
+    memcpy(&st_rc, mtp_tx_buf + st_data_len + 6, 2);
+    assert(st_rc == R36_MTP_RC_OK && st_data_len > 30);
+
+    /* SendObjectInfo (create folder "ROMs") */
+    uint8_t oi_dir[128];
+    memset(oi_dir, 0, sizeof(oi_dir));
+    uint16_t fmt_dir = R36_MTP_FMT_ASSOCIATION;
+    memcpy(oi_dir + 4, &fmt_dir, 2);
+    size_t oi_dir_len = r36_mtp_put_str(oi_dir, 52, "ROMs");
+    mtp_tx_len = 0;
+    push_mtp_cmd3(R36_MTP_OP_SendObjectInfo, 11u, R36_MTP_STORAGE_ID, 0u, 0u, 2);
+    push_mtp_data(R36_MTP_OP_SendObjectInfo, 11u, oi_dir, (uint32_t)oi_dir_len);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint32_t dir_handle = 0; uint16_t dir_rc = 0;
+    memcpy(&dir_rc, mtp_tx_buf + 6, 2);
+    memcpy(&dir_handle, mtp_tx_buf + 20, 4);
+    assert(dir_rc == R36_MTP_RC_OK && dir_handle >= 1u);
+
+    /* Reject path traversal in SendObjectInfo */
+    uint8_t oi_bad[128];
+    memset(oi_bad, 0, sizeof(oi_bad));
+    uint16_t fmt_file = R36_MTP_FMT_UNDEFINED;
+    memcpy(oi_bad + 4, &fmt_file, 2);
+    size_t oi_bad_len = r36_mtp_put_str(oi_bad, 52, "../evil.bin");
+    mtp_tx_len = 0;
+    push_mtp_cmd3(R36_MTP_OP_SendObjectInfo, 12u, R36_MTP_STORAGE_ID, 0u, 0u, 2);
+    push_mtp_data(R36_MTP_OP_SendObjectInfo, 12u, oi_bad, (uint32_t)oi_bad_len);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint16_t bad_rc = 0;
+    memcpy(&bad_rc, mtp_tx_buf + 6, 2);
+    assert(bad_rc == R36_MTP_RC_InvalidParameter);
+
+    /* SendObjectInfo + SendObject inside "ROMs" ("demo.gb") */
+    const char *gb_payload = "NINTENDO_SYNTHETIC_ROM_BYTES_123456";
+    uint32_t gb_len = (uint32_t)strlen(gb_payload);
+    uint8_t oi_file[128];
+    memset(oi_file, 0, sizeof(oi_file));
+    memcpy(oi_file + 4, &fmt_file, 2);
+    memcpy(oi_file + 8, &gb_len, 4);
+    size_t oi_file_len = r36_mtp_put_str(oi_file, 52, "demo.gb");
+    mtp_tx_len = 0;
+    push_mtp_cmd3(R36_MTP_OP_SendObjectInfo, 13u, R36_MTP_STORAGE_ID, dir_handle, 0u, 2);
+    push_mtp_data(R36_MTP_OP_SendObjectInfo, 13u, oi_file, (uint32_t)oi_file_len);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint32_t file_handle = 0; uint16_t file_info_rc = 0;
+    memcpy(&file_info_rc, mtp_tx_buf + 6, 2);
+    memcpy(&file_handle, mtp_tx_buf + 20, 4);
+    assert(file_info_rc == R36_MTP_RC_OK && file_handle > dir_handle);
+
+    mtp_tx_len = 0;
+    push_mtp_cmd(R36_MTP_OP_SendObject, 14u, 0u, 0);
+    push_mtp_data(R36_MTP_OP_SendObject, 14u, gb_payload, gb_len);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint16_t send_rc = 0;
+    memcpy(&send_rc, mtp_tx_buf + 6, 2);
+    assert(send_rc == R36_MTP_RC_OK);
+
+    /* GetObjectHandles for dir_handle -> lists demo.gb */
+    mtp_tx_len = 0;
+    push_mtp_cmd3(R36_MTP_OP_GetObjectHandles, 15u, R36_MTP_STORAGE_ID, 0u, dir_handle, 3);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint32_t h_data_len = 0, h_count = 0, listed_h = 0;
+    memcpy(&h_data_len, mtp_tx_buf, 4);
+    memcpy(&h_count, mtp_tx_buf + 12, 4);
+    memcpy(&listed_h, mtp_tx_buf + 16, 4);
+    assert(h_count == 1u && listed_h == file_handle);
+
+    /* GetObjectInfo for file_handle */
+    mtp_tx_len = 0;
+    push_mtp_cmd(R36_MTP_OP_GetObjectInfo, 16u, file_handle, 1);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint32_t oi_resp_len = 0, reported_sz = 0;
+    memcpy(&oi_resp_len, mtp_tx_buf, 4);
+    memcpy(&reported_sz, mtp_tx_buf + 12 + 8, 4);
+    assert(reported_sz == gb_len && oi_resp_len > 64);
+
+    /* GetObject & GetPartialObject */
+    mtp_tx_len = 0;
+    push_mtp_cmd(R36_MTP_OP_GetObject, 17u, file_handle, 1);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint32_t get_len = 0; uint16_t get_rc = 0;
+    memcpy(&get_len, mtp_tx_buf, 4);
+    memcpy(&get_rc, mtp_tx_buf + get_len + 6, 2);
+    assert(get_rc == R36_MTP_RC_OK && get_len == 12u + gb_len);
+    assert(!memcmp(mtp_tx_buf + 12, gb_payload, gb_len));
+
+    mtp_tx_len = 0;
+    push_mtp_cmd3(R36_MTP_OP_GetPartialObject, 18u, file_handle, 9u, 9u, 3);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint32_t part_len = 0, part_r0 = 0;
+    memcpy(&part_len, mtp_tx_buf, 4);
+    memcpy(&part_r0, mtp_tx_buf + part_len + 12, 4);
+    assert(part_len == 12u + 9u && part_r0 == 9u && !memcmp(mtp_tx_buf + 12, "SYNTHETIC", 9));
+
+    /* DeleteObject removes real file and invalidates handle */
+    mtp_tx_len = 0;
+    push_mtp_cmd(R36_MTP_OP_DeleteObject, 19u, file_handle, 1);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint16_t del_rc = 0;
+    memcpy(&del_rc, mtp_tx_buf + 6, 2);
+    assert(del_rc == R36_MTP_RC_OK);
+
+    mtp_tx_len = 0;
+    push_mtp_cmd(R36_MTP_OP_GetObjectInfo, 20u, file_handle, 1);
+    assert(r36_mtp_adb_poll_once(&rt, 10, test_shell_cb) == 1);
+    uint16_t gone_rc = 0;
+    memcpy(&gone_rc, mtp_tx_buf + 6, 2);
+    assert(gone_rc == R36_MTP_RC_InvalidObjectHandle);
 
     r36_teardown_mtp_adb_gadget(&rt.fds);
     assert(open_mask == 0 && udc_unbound == 1);
+
+    /* Transport auto-selection: FunctionFS -> Legacy /dev/mtp_usb -> None */
+    struct r36_mtp_adb_runtime tr_rt;
+    memset(&tr_rt, 0, sizeof(tr_rt));
+    tr_rt.fds.mtp_ep0 = -1;
+    allow_ffs_ep0 = 1; allow_legacy_mtp = 1;
+    assert(r36_open_mtp_transport(&tr_rt) == R36_MTP_TRANSPORT_FFS);
+    assert(open_mask == 0);
+
+    allow_ffs_ep0 = 0; allow_legacy_mtp = 1;
+    assert(r36_open_mtp_transport(&tr_rt) == R36_MTP_TRANSPORT_LEGACY);
+    assert(tr_rt.mtp_legacy_active == 1 && tr_rt.mtp_legacy_fd == FD_MTP_LEGACY);
+    r36_close_mtp_transport(&tr_rt);
+    assert(tr_rt.mtp_legacy_active == 0 && open_mask == 0);
+
+    allow_ffs_ep0 = 0; allow_legacy_mtp = 0;
+    assert(r36_open_mtp_transport(&tr_rt) == -1 && tr_rt.mtp_transport_mode == R36_MTP_TRANSPORT_NONE);
     return 0;
 }}
 ''')
