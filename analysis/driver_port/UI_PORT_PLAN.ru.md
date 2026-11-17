@@ -24,7 +24,7 @@
   VM (-Wall -Wextra -Werror, trace-сборка отдельно). Полный pytest Windows:
   262 passed/14 skipped. Результат: analysis/driver_port/DRM_FLIP_OFFLINE_v1_RESULT.json.
 
-## MIPS-артефакты пересобраны; candidate flip готов, hardware trial ждёт консоль
+## MIPS-артефакты пересобраны; candidate flip готов; flip-trial выполнен, evidence неполон
 
 - Тулчейн: mipsel-linux-gnu-gcc (Ubuntu 10.3.0-1ubuntu1 — та же версия, что в
   историческом .so) из D:/wsl/ubmips/rootfs, извлечён в QEMU build VM в
@@ -59,10 +59,28 @@
   спот-чек с устройства байт-в-байт. Тесты backup9+poweroff7, pytest278/14.
   Poweroff-флаги trial-скрипта (--poweroff-on-completion/--poweroff-after)
   готовы и по умолчанию выключены (включать по команде пользователя).
-- Следующее: выполнить
-  `python scripts/boot_crypto/run_restored_cold_trial.py --deploy payload/kernel_cold_ui_flip_v1`
-  (workdir scripts/boot_crypto, без poweroff-флагов),
-  наблюдая смену кадров на предмет чёрных квадратов (камера разрешена).
+- Trial kernel_cold_ui_flip_v1 ВЫПОЛНЕН (run_id ebc4735788ad4f398f400a7d996da13a,
+  receipt analysis/boot_crypto/kernel_cold_ui_flip_v1_trial.json): механика PASS —
+  cold NOR boot (trace stage6, entry 0x805c2e74 == original_entry, session_tag
+  0xe364cdd), native restore PASS (стамп R36ST1/crc c3693b14), автовозврат stock
+  (uptime 18.14s), все6 hashes, host_cleanup=false, poweroff_requested=false.
+- Evidence НЕ полон: r36-own-kernel-proof.txt / r36-ui-probe.txt / r36-ui-child.txt /
+  r36-ui-keys.txt на SD нет → cold_boot_verified=false; PID1 не дошёл до записи
+  отчётов (remount-rw). В nav-trial при идентичном init.elf/initramfs/vmlinux/
+  писателе эти файлы собрались; единственное отличие = новый
+  driver_r36_drm_ui_test.so (74012f12… vs 991aa7e…). Гипотеза: UI-дочерний завис
+  (ожидание flip-события нового драйвера), init завис в waitpid/reap, watchdog
+  отсёк; tmpfs-отчёты потеряны — прямых доказательств нет.
+- Камера180 кадров (analysis/boot_crypto/camera_cold_ui_flip_v1_run1..3): в окне
+  custom boot экран без видимых изменений (splash не появился, смены кадров нет),
+  чёрных квадратов не видно ни в одном кадре; дальше чёрный кадр сброса и
+  штатный возврат stock. Квадраты НЕ объявлены исправленными — условие наблюдения
+  (смена кадров) не наступило.
+- Следующее: distinct instrumented candidate — mark-точки NOR user_trace в
+  ui_console_init.c после module load/child start/deadline/remount, чтобы поймать
+  место зависания; новый candidate ID и новый receipt (тот же ID запрещён —
+  receipt существует). Консоль в stock; keepawake перезапущен (авто-выключение
+  отключено по указанию пользователя).
 
 ## UI directional navigation v1 accepted; black-square defect open
 
