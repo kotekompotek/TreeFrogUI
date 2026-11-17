@@ -32,6 +32,19 @@ The mods are offered upstream: [#104](https://github.com/tzubertowski/TreeFrogUI
 of the mods are MIT; TreeFrogUI itself stays under its own license
 (CC BY-NC-SA 4.0, see LICENSE.md).
 
+### Linux 7.2 Port & Peripheral Stack ([`linux7-hc16e310-port`](https://github.com/kotekompotek/TreeFrogUI/tree/linux7-hc16e310-port))
+
+> **⚠️ Hardware scope:** All hardware tests and cold NOR boot trials were performed **exclusively on the HiChip HC16E310 processor** (single R36S-clone / GB350 unit). Other SoCs, board revisions, and peripherals not listed as verified have **not** been tested.
+
+- **What was built (`linux7-hc16e310-port` branch):**
+  - **Unified Linux `7.2.0-rc5-r36full` kernel (`PROFILE=full`, `-Os`):** `r36-full.dts` + `vm_build_kernel.sh` with `hc16xx-gpio` (128 GPIOs), dual MUSB USB0/USB1 (`musb-hdrc.0.auto` / `musb-hdrc.1.auto`), `r36-direct-keys` + `r36-serial-keys`, PWM backlight, SAR ADC (`/dev/check_adc1`, `/dev/check_adc5`), `r36_hc16xx_drm.ko`, `r36_hc16xx_i2s.ko`, and 66 in-tree `.ko` modules (Wi-Fi `cfg80211`/`mac80211`/`rtw88_*`/`mt7601u`/`rt2800usb`/`ath9k_htc`, USB-net, Bluetooth `bluetooth`/`btusb`).
+  - **Combined `PICOARCH_DRIVER` (`driver_r36_combined_v1.so`):** MIPS32r2 DRM double-buffer page-flip + ALSA audio backend linked against console `libpthread.so.0` + `libc.so.6`.
+  - **System daemon & power settings (`r36_sysd`, `r36_power_settings`):** volume/brightness persistence (`/mnt/sdcard/cubegm/r36_sysd.conf`), PA/HP-detect (`GPIO19`/`GPIO15`), configurable **Screen Off Timer** (with smooth 5-second brightness fade and instant restore on any user input) and **Auto Poweroff Timer**, plus `/dev/fb0` on-console settings UI (`r36-power-settings`).
+  - **Session & recovery tooling:** `r36_session_init` PID1 supervisor, `prepare_session_initramfs.py`, `r36_chkdsk_console` (`/dev/fb0` Check Disk UI), and `usb_mtp_adb_service` (`FunctionFS`/legacy transport).
+- **What was tested & verified:**
+  - **Offline & QEMU (`313 passed, 14 skipped`):** `RTLD_NOW` `dlopen` of `driver_r36_combined_v1.so` under `qemu-mipsel` with console `ld.so.1` (`CONSOLE_RUNTIME_DLOPEN_COMBINED=PASS`), `r36_sysd` idle fade/wake/auto-poweroff mocks + static MIPS32r2 builds, `cold_restore_emulation` (`8/8` cases `PASS`) + `cold_restore_native_fallback` (`PASS`).
+  - **Real HC16E310 hardware cold NOR trial (`kernel_cold_full_v1_trial.json`):** `cold_boot_verified=true`, `native_restore_verified=true`, `stock_restored=true`, PID1 reached (`stage=6`, `7.2.0-rc5-r36full #24`), `usb1` & `usb2` MUSB hubs initialized, `input0` (`r36-direct-keys`) & `input1` (`r36-serial-keys`) registered, and `display_inspection=PASS` (`timing_match=1`, `raster_progress=1`). Full visual UI/game/audio/Wi-Fi hardware acceptance remains to be run on the new kernel.
+
 ---
 
 ![TreeFrogUI Logo](logo-readme.png)
