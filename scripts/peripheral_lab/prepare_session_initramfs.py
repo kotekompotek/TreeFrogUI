@@ -16,6 +16,7 @@ BINARY_SPECS = [
     ("init", ROOT / "scripts/peripheral_lab/r36_session_init.c", []),
     ("sbin/r36-chkdsk", ROOT / "scripts/kernel_lab/r36_chkdsk_console.c", []),
     ("sbin/r36-sysd", ROOT / "scripts/peripheral_lab/r36_sysd.c", []),
+    ("sbin/r36-power-settings", ROOT / "scripts/peripheral_lab/r36_power_settings.c", []),
     ("sbin/r36-usb-mtp-adb", ROOT / "scripts/peripheral_lab/usb_mtp_adb_service.c", []),
 ]
 FSCK_BIN = ROOT / "analysis/driver_port/r36-fsck-cp437-v2"

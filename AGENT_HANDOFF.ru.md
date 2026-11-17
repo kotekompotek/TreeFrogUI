@@ -12,6 +12,10 @@
 - **Исправления сборки в VM и репозитории:**
   - `scripts/kernel_lab/r36-full.dts` и `scripts/peripheral_lab/vm_build_kernel.sh`: `#include "r36-audio.dts"` перенесён до `&r36_audio { status = "okay"; };` с защитой от повторного включения в конец `r36-lab.dts`.
   - В QEMU build VM каталог Debian glibc `/usr/lib/x86_64-linux-gnu` перенесён в `/opt/x86_64-linux-gnu`, чтобы `HOSTCC=clang`/`ld.lld` не подхватывал glibc-скрипт линковки вместо Alpine musl.
+- **Таймеры отключения экрана и автовыключения + настройки (`r36_sysd_conf.h`, `r36_sysd.c`, `r36_power_settings.c`):**
+  - В `r36_sysd.conf` (`/mnt/sdcard/cubegm/r36_sysd.conf`) добавлены `screen_off_sec` (по умолчанию `120`, `0` = выкл) и `auto_poweroff_sec` (по умолчанию `600`, `0` = выкл); `r36_sysd` перечитывает конфиг каждые 2 с и отслеживает активность с обоих evdev (`/dev/input/event1` и `/dev/input/event0`).
+  - За 5 с до `screen_off_sec` `r36_sysd` плавно снижает яркость подсветки; при любом нажатии кнопки во время затухания или после отключения экрана яркость (и PA при пробуждении) мгновенно восстанавливается.
+  - Добавлена консольная утилита настроек `r36_power_settings.c` (`/sbin/r36-power-settings` в `prepare_session_initramfs.py`, UI на `/dev/fb0` + CLI `--get`/`--screen-off`/`--auto-poweroff`/`--volume`/`--brightness`). Тесты: `test_r36_sysd.py` (`3 passed`, включая компиляцию MIPS32r2) и `test_session_initramfs.py` (`1 passed`).
 - **Hardware-проверка не выполнялась** (консоль отключена, камера не использовалась).
 
 ## Double-buffer + synchronous DRM flip готовы офлайн; hardware не запускался
