@@ -14,7 +14,7 @@ def test_r36_full_dts_contains_all_subsystems():
         "r36lab,hc16xx-restart",
         "r36lab,hc16xx-adc-ro",
         '&r36_audio { status = "okay"; };',
-        '&usb0 { status = "okay"; dr_mode = "otg"; };',
+        '&usb0 { status = "okay"; dr_mode = "peripheral"; };',
         '&usb1 { status = "okay"; dr_mode = "host"; };',
     ):
         assert token in dts, token
