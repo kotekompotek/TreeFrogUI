@@ -18,6 +18,8 @@ BINARY_SPECS = [
     ("sbin/r36-sysd", ROOT / "scripts/peripheral_lab/r36_sysd.c", []),
     ("sbin/r36-power-settings", ROOT / "scripts/peripheral_lab/r36_power_settings.c", []),
     ("sbin/r36-usb-mtp-adb", ROOT / "scripts/peripheral_lab/usb_mtp_adb_service.c", []),
+    ("sbin/r36-audio-test", ROOT / "scripts/peripheral_lab/r36_audio_test.c", ["-lm"]),
+    ("sbin/r36-legacy-keys", ROOT / "scripts/peripheral_lab/legacy_keys.c", ["-DR36_KEYS_DIAGNOSTIC"]),
 ]
 FSCK_BIN = ROOT / "analysis/driver_port/r36-fsck-cp437-v2"
 

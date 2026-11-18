@@ -19,7 +19,12 @@
     - в Windows `USB\VID_18D1&PID_4E22\R36S-MTP-ADB` определяется (`WUDFWpdMtp` + `WinUSB`);
     - **MTP полностью работает** — через `Shell.Application` получено хранилище `R36S -> SD card` и полный список файлов/каталогов корня SD-карты;
     - **ADB полностью работает (`v20`–`v21`):** перевод `r36_adb_thread` на Linux AIO (`SYS_io_setup`/`SYS_io_submit`/`SYS_io_getevents`, 4 буфера по 4096 Б) + `fork`/`execl("/bin/sh")` с `/mnt/sdcard/cubegm/busybox` и симлинком `/bin/sh` в [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) устранил гонку `CNXN`; `adb devices -l` показывает `R36S-MTP-ADB device product:r36s model:R36S device:hc16xx`, а `adb shell "busybox uname -a; busybox cat /proc/bus/input/devices"` вернул `Linux sf3k 7.2.0-rc5-r36full #39 ... mips GNU/Linux` и оба устройства ввода (`event0`, `event1`).
-- **QEMU Build VM:** в [build_vm.py](file:///d:/r36s-/scripts/peripheral_lab/build_vm.py) увеличено `-smp 2` -> `-smp 6` (применится при следующем перезапуске VM).
+- **Предсобрано офлайн к вечернему тесту (`v22`, на 6-ядерной QEMU VM):**
+  - В [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) добавлены симлинки 23 апплетов `busybox` в `/bin/` для прямого `adb shell` без префикса `busybox`.
+  - Добавлен [r36_audio_test.c](file:///d:/r36s-/scripts/peripheral_lab/r36_audio_test.c) (1 кГц синус через `audio_alsa_backend.c` -> `/dev/snd/pcmC0D0p`) и включены `sbin/r36-audio-test` + полный 12-кнопочный `sbin/r36-legacy-keys` в [prepare_session_initramfs.py](file:///d:/r36s-/scripts/peripheral_lab/prepare_session_initramfs.py).
+  - Собрано ядро `payload/kernel_full_session_v22` (`7.2.0-rc5-r36full #40`), холодный образ `payload/kernel_cold_full_session_v22` (`3 787 725` Б <= `3 954 219` Б) прошёл эмуляцию (`8/8` + `native_decrypt`: `passed=true`).
+  - Проверен захват микрофона ПК через `ffmpeg` (`Набор микрофонов (Realtek Audio)`).
+- **QEMU Build VM:** перезапущена на **6 ядрах (`nproc=6`)**, `Alpine clang 20.1.8`, `/work/READY`.
 - **Офлайн-проверки после финальной правки:** `python -m pytest scripts -q` -> **`313 passed, 14 skipped`**.
 - **Консоль:** возвращена в сток (`stock_restored=true`), постоянный переход (`advapi32.dll`) **не выполнялся**; на стоке и в `r36_sysd.conf` автосон/автовыключение отключены (`screen_off_sec=0`, `auto_poweroff_sec=0`).
 

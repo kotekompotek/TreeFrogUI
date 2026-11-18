@@ -346,9 +346,16 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
     }
     if (access("/bin/sh", F_OK) != 0 &&
         access("/mnt/sdcard/cubegm/busybox", F_OK) == 0) {
+        static const char *const applets[] = {
+            "/bin/sh", "/bin/busybox", "/bin/uname", "/bin/ls", "/bin/cat",
+            "/bin/ps", "/bin/dmesg", "/bin/lsmod", "/bin/insmod", "/bin/df",
+            "/bin/free", "/bin/grep", "/bin/head", "/bin/tail", "/bin/hexdump",
+            "/bin/kill", "/bin/mkdir", "/bin/rm", "/bin/cp", "/bin/mv",
+            "/bin/chmod", "/bin/sync", "/bin/sleep", NULL
+        };
         mkdir("/bin", 0755);
-        (void)symlink("/mnt/sdcard/cubegm/busybox", "/bin/sh");
-        (void)symlink("/mnt/sdcard/cubegm/busybox", "/bin/busybox");
+        for (int i = 0; applets[i]; i++)
+            (void)symlink("/mnt/sdcard/cubegm/busybox", applets[i]);
     }
     if (ctx->cfg.swapfile && access(ctx->cfg.swapfile, F_OK) == 0)
         swap_rc = swapon(ctx->cfg.swapfile, 0);
