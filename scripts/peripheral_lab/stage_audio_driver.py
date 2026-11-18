@@ -70,10 +70,11 @@ MODULE_PARM_DESC(allow_takeover, "Explicit ownership takeover; keep false until 
     text = once(text, '\thc16xx_i2s_hw_init(a);', '''\t/* Refuse takeover of a running DMA engine, even with module opt-in. */
 	if (readl(a->regs + I2SO_CTRL) & I2SO_CTRL_RUN)
 		return dev_err_probe(dev, -EBUSY, "old audio DMA is active\\n");
-	/* Cold boot skips stock DT pinctrl: mux L3/L4/L5 to I2S (2) and L19 to GPIO (0). */
+	/* Cold boot skips stock DT pinctrl: mux L3/L4/L5 to I2S (2) and L15/L19 to GPIO (0). */
 	writeb(2, a->sys + 0x4a3);
 	writeb(2, a->sys + 0x4a4);
 	writeb(2, a->sys + 0x4a5);
+	writeb(0, a->sys + 0x4af);
 	writeb(0, a->sys + 0x4b3);
 	hc16xx_i2s_hw_init(a);''')
     health = '''static ssize_t health_show(struct device *dev, struct device_attribute *attr, char *buf)

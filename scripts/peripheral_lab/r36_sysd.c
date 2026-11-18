@@ -18,11 +18,11 @@
 
 #ifndef R36_SYSD_MOCK
 #include <fcntl.h>
-#include <linux/gpio.h>
 #include <linux/input.h>
 #include <poll.h>
 #include <sound/asound.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/reboot.h>
 #include <sys/swap.h>
 #include <sys/mount.h>
@@ -102,8 +102,8 @@ struct r36_sysd_state {
     int last_bl_raw;
     int last_alsa_gain;
     int last_alsa_unmute;
-    int gpio19_line_fd;
-    int gpio15_line_fd;
+    void *gpio_mmap;
+    int gpio_mem_fd;
     int shutdown_requested;
     uint64_t last_bat_poll_ms;
     uint64_t last_activity_ms;
@@ -233,69 +233,67 @@ static void r36_sysd_apply_alsa_mixer(struct r36_sysd_state *st)
 #endif
 }
 
-static int r36_gpiochip_set_out(int *line_fd, unsigned int offset, int val)
+#ifndef R36_SYSD_MOCK
+static volatile uint8_t *r36_hw_gpio_map(struct r36_sysd_state *st)
+{
+    if (!st)
+        return NULL;
+    if (!st->gpio_mmap) {
+        int fd = open("/dev/mem", O_RDWR | O_SYNC | O_CLOEXEC);
+        if (fd < 0)
+            return NULL;
+        void *m = mmap(NULL, 4096u, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)0x18800000u);
+        if (m == MAP_FAILED) {
+            close(fd);
+            return NULL;
+        }
+        st->gpio_mem_fd = fd;
+        st->gpio_mmap = m;
+        /* Ensure L15 (HP-detect, +0x4af) and L19 (speaker mute, +0x4b3) are muxed to GPIO (0). */
+        volatile uint8_t *base = (volatile uint8_t *)m;
+        base[0x4af] = 0u;
+        base[0x4b3] = 0u;
+        volatile uint32_t *dir = (volatile uint32_t *)(base + 0x58);
+        *dir &= ~(1u << 15);
+    }
+    return (volatile uint8_t *)st->gpio_mmap;
+}
+#endif
+
+static int r36_hw_gpio15_get(struct r36_sysd_state *st, int fallback)
 {
 #ifndef R36_SYSD_MOCK
-    struct gpiohandle_data data;
-    if (*line_fd < 0) {
-        int cfd = open("/dev/gpiochip0", O_RDONLY | O_CLOEXEC);
-        if (cfd < 0)
-            return -1;
-        struct gpiohandle_request req;
-        memset(&req, 0, sizeof(req));
-        req.lineoffsets[0] = offset;
-        req.flags = GPIOHANDLE_REQUEST_OUTPUT;
-        req.default_values[0] = val ? 1u : 0u;
-        req.lines = 1;
-        snprintf(req.consumer_label, sizeof(req.consumer_label), "r36-sysd");
-        if (ioctl(cfd, GPIO_GET_LINEHANDLE_IOCTL, &req) != 0) {
-            close(cfd);
-            return -1;
-        }
-        close(cfd);
-        *line_fd = req.fd;
-        return 0;
-    }
-    memset(&data, 0, sizeof(data));
-    data.values[0] = val ? 1u : 0u;
-    return ioctl(*line_fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) == 0 ? 0 : -1;
+    volatile uint8_t *base = r36_hw_gpio_map(st);
+    if (!base)
+        return fallback;
+    volatile uint32_t *in_reg = (volatile uint32_t *)(base + 0x50);
+    return ((*in_reg >> 15) & 1u) ? 1 : 0;
 #else
-    (void)line_fd;
-    (void)offset;
-    (void)val;
-    return -1;
+    (void)st;
+    return fallback;
 #endif
 }
 
-static int r36_gpiochip_get_in(int *line_fd, unsigned int offset, int fallback)
+static int r36_hw_gpio19_set_amp(struct r36_sysd_state *st, int en)
 {
 #ifndef R36_SYSD_MOCK
-    struct gpiohandle_data data;
-    if (*line_fd < 0) {
-        int cfd = open("/dev/gpiochip0", O_RDONLY | O_CLOEXEC);
-        if (cfd < 0)
-            return fallback;
-        struct gpiohandle_request req;
-        memset(&req, 0, sizeof(req));
-        req.lineoffsets[0] = offset;
-        req.flags = GPIOHANDLE_REQUEST_INPUT;
-        req.lines = 1;
-        snprintf(req.consumer_label, sizeof(req.consumer_label), "r36-sysd");
-        if (ioctl(cfd, GPIO_GET_LINEHANDLE_IOCTL, &req) != 0) {
-            close(cfd);
-            return fallback;
-        }
-        close(cfd);
-        *line_fd = req.fd;
-    }
-    memset(&data, 0, sizeof(data));
-    if (ioctl(*line_fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data) == 0)
-        return data.values[0] ? 1 : 0;
-    return fallback;
+    volatile uint8_t *base = r36_hw_gpio_map(st);
+    if (!base)
+        return -1;
+    volatile uint32_t *out_reg = (volatile uint32_t *)(base + 0x54);
+    volatile uint32_t *dir_reg = (volatile uint32_t *)(base + 0x58);
+    uint32_t v = *out_reg;
+    if (en)
+        v &= ~(1u << 19); /* L19 is active-high speaker mute: 0 = unmuted */
+    else
+        v |= (1u << 19);
+    *out_reg = v;
+    *dir_reg |= (1u << 19);
+    return 0;
 #else
-    (void)line_fd;
-    (void)offset;
-    return fallback;
+    (void)st;
+    (void)en;
+    return -1;
 #endif
 }
 
@@ -303,14 +301,14 @@ static int r36_sysd_apply_speaker_amp(struct r36_sysd_state *st)
 {
     int hp_lvl = r36_read_sysfs_int(st->paths.gpio15_hp_path, -1);
     if (hp_lvl < 0)
-        hp_lvl = r36_gpiochip_get_in(&st->gpio15_line_fd, 15, st->hp_active_low ? 1 : 0);
+        hp_lvl = r36_hw_gpio15_get(st, st->hp_active_low ? 1 : 0);
     int en = r36_speaker_amp_should_enable(hp_lvl, st->hp_active_low, st->muted,
                                            st->keys.volume_pct, st->sleeping);
     r36_sysd_apply_alsa_mixer(st);
     if (en == st->last_amp_enable)
         return 0;
     if (r36_write_sysfs_int(st->paths.gpio19_amp_path, en) == 0 ||
-        r36_gpiochip_set_out(&st->gpio19_line_fd, 19, en) == 0) {
+        r36_hw_gpio19_set_amp(st, en) == 0) {
         st->last_amp_enable = en;
         return 0;
     }
@@ -374,8 +372,8 @@ static int r36_sysd_init(struct r36_sysd_state *st, const struct r36_sysd_paths 
     memset(st, 0, sizeof(*st));
     st->evdev_fd = -1;
     st->evdev_game_fd = -1;
-    st->gpio19_line_fd = -1;
-    st->gpio15_line_fd = -1;
+    st->gpio_mem_fd = -1;
+    st->gpio_mmap = NULL;
     if (custom_paths)
         st->paths = *custom_paths;
     else
