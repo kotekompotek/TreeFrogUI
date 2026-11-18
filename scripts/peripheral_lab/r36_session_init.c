@@ -329,8 +329,10 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
         return -1;
 
     if (ctx->cfg.chkdsk_bin && access(ctx->cfg.chkdsk_bin, F_OK) == 0) {
-        const char *const chk_argv[] = { ctx->cfg.chkdsk_bin, "--if-kernel-error", NULL };
-        if (r36_run_sync_cmd(chk_argv) != 0)
+        const char *const chk_argv[] = { ctx->cfg.chkdsk_bin, "--no-watchdog", NULL };
+        int chk_rc = r36_run_sync_cmd(chk_argv);
+        (void)unlink("/tmp/fat_meta_snapshot.bin");
+        if (chk_rc != 0)
             return -2; /* Never mount a dirty/damaged SD card on chkdsk refusal */
     }
 

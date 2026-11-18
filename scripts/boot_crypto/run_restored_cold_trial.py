@@ -252,6 +252,11 @@ def main():
         if record["poweroff_requested"]:
             save()
             poweroff_console(transport, record, started, args.poweroff_after)
+        elif record["stock_restored"]:
+            try:
+                transport.run("sh /mnt/sdcard/cubegm/r36_keepawake.sh start >/dev/null 2>&1 || true", timeout=10)
+            except Exception:
+                pass
         save()
     print(json.dumps(record, indent=2))
 

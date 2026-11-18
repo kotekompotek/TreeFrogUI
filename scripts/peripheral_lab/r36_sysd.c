@@ -18,8 +18,11 @@
 
 #ifndef R36_SYSD_MOCK
 #include <fcntl.h>
+#include <linux/gpio.h>
 #include <linux/input.h>
 #include <poll.h>
+#include <sound/asound.h>
+#include <sys/ioctl.h>
 #include <sys/reboot.h>
 #include <sys/swap.h>
 #include <sys/mount.h>
@@ -97,6 +100,10 @@ struct r36_sysd_state {
     int max_brightness;
     int last_amp_enable;
     int last_bl_raw;
+    int last_alsa_gain;
+    int last_alsa_unmute;
+    int gpio19_line_fd;
+    int gpio15_line_fd;
     int shutdown_requested;
     uint64_t last_bat_poll_ms;
     uint64_t last_activity_ms;
@@ -180,14 +187,130 @@ static int r36_sysd_apply_backlight(struct r36_sysd_state *st)
     return -1;
 }
 
+static void r36_sysd_apply_alsa_mixer(struct r36_sysd_state *st)
+{
+#ifndef R36_SYSD_MOCK
+    int gain = (st->keys.volume_pct * 128) / 100;
+    int unmute = (!st->muted && !st->sleeping && st->keys.volume_pct > 0) ? 1 : 0;
+    int fd;
+    struct snd_ctl_elem_list list;
+    struct snd_ctl_elem_id ids[8];
+    unsigned int i;
+
+    if (gain < 0) gain = 0;
+    if (gain > 255) gain = 255;
+    if (gain == st->last_alsa_gain && unmute == st->last_alsa_unmute)
+        return;
+
+    fd = open("/dev/snd/controlC0", O_RDWR | O_CLOEXEC);
+    if (fd < 0)
+        return;
+    memset(&list, 0, sizeof(list));
+    memset(ids, 0, sizeof(ids));
+    list.offset = 0;
+    list.space = 8;
+    list.pids = ids;
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &list) == 0) {
+        unsigned int n = list.used < 8u ? list.used : 8u;
+        for (i = 0; i < n; i++) {
+            struct snd_ctl_elem_value val;
+            memset(&val, 0, sizeof(val));
+            val.id = ids[i];
+            if (strcmp((const char *)ids[i].name, "Master Playback Volume") == 0) {
+                val.value.integer.value[0] = gain;
+                (void)ioctl(fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &val);
+            } else if (strcmp((const char *)ids[i].name, "Master Playback Switch") == 0) {
+                val.value.integer.value[0] = unmute;
+                (void)ioctl(fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &val);
+            }
+        }
+        st->last_alsa_gain = gain;
+        st->last_alsa_unmute = unmute;
+    }
+    close(fd);
+#else
+    (void)st;
+#endif
+}
+
+static int r36_gpiochip_set_out(int *line_fd, unsigned int offset, int val)
+{
+#ifndef R36_SYSD_MOCK
+    struct gpiohandle_data data;
+    if (*line_fd < 0) {
+        int cfd = open("/dev/gpiochip0", O_RDONLY | O_CLOEXEC);
+        if (cfd < 0)
+            return -1;
+        struct gpiohandle_request req;
+        memset(&req, 0, sizeof(req));
+        req.lineoffsets[0] = offset;
+        req.flags = GPIOHANDLE_REQUEST_OUTPUT;
+        req.default_values[0] = val ? 1u : 0u;
+        req.lines = 1;
+        snprintf(req.consumer_label, sizeof(req.consumer_label), "r36-sysd");
+        if (ioctl(cfd, GPIO_GET_LINEHANDLE_IOCTL, &req) != 0) {
+            close(cfd);
+            return -1;
+        }
+        close(cfd);
+        *line_fd = req.fd;
+        return 0;
+    }
+    memset(&data, 0, sizeof(data));
+    data.values[0] = val ? 1u : 0u;
+    return ioctl(*line_fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) == 0 ? 0 : -1;
+#else
+    (void)line_fd;
+    (void)offset;
+    (void)val;
+    return -1;
+#endif
+}
+
+static int r36_gpiochip_get_in(int *line_fd, unsigned int offset, int fallback)
+{
+#ifndef R36_SYSD_MOCK
+    struct gpiohandle_data data;
+    if (*line_fd < 0) {
+        int cfd = open("/dev/gpiochip0", O_RDONLY | O_CLOEXEC);
+        if (cfd < 0)
+            return fallback;
+        struct gpiohandle_request req;
+        memset(&req, 0, sizeof(req));
+        req.lineoffsets[0] = offset;
+        req.flags = GPIOHANDLE_REQUEST_INPUT;
+        req.lines = 1;
+        snprintf(req.consumer_label, sizeof(req.consumer_label), "r36-sysd");
+        if (ioctl(cfd, GPIO_GET_LINEHANDLE_IOCTL, &req) != 0) {
+            close(cfd);
+            return fallback;
+        }
+        close(cfd);
+        *line_fd = req.fd;
+    }
+    memset(&data, 0, sizeof(data));
+    if (ioctl(*line_fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data) == 0)
+        return data.values[0] ? 1 : 0;
+    return fallback;
+#else
+    (void)line_fd;
+    (void)offset;
+    return fallback;
+#endif
+}
+
 static int r36_sysd_apply_speaker_amp(struct r36_sysd_state *st)
 {
-    int hp_lvl = r36_read_sysfs_int(st->paths.gpio15_hp_path, st->hp_active_low ? 1 : 0);
+    int hp_lvl = r36_read_sysfs_int(st->paths.gpio15_hp_path, -1);
+    if (hp_lvl < 0)
+        hp_lvl = r36_gpiochip_get_in(&st->gpio15_line_fd, 15, st->hp_active_low ? 1 : 0);
     int en = r36_speaker_amp_should_enable(hp_lvl, st->hp_active_low, st->muted,
                                            st->keys.volume_pct, st->sleeping);
+    r36_sysd_apply_alsa_mixer(st);
     if (en == st->last_amp_enable)
         return 0;
-    if (r36_write_sysfs_int(st->paths.gpio19_amp_path, en) == 0) {
+    if (r36_write_sysfs_int(st->paths.gpio19_amp_path, en) == 0 ||
+        r36_gpiochip_set_out(&st->gpio19_line_fd, 19, en) == 0) {
         st->last_amp_enable = en;
         return 0;
     }
@@ -222,6 +345,8 @@ static int r36_sysd_clean_shutdown(struct r36_sysd_state *st)
     st->sleeping = 1;
     st->last_amp_enable = -1;
     st->last_bl_raw = -1;
+    st->last_alsa_gain = -1;
+    st->last_alsa_unmute = -1;
     r36_sysd_apply_speaker_amp(st);
     r36_sysd_apply_backlight(st);
     r36_battery_close(&st->bat);
@@ -249,6 +374,8 @@ static int r36_sysd_init(struct r36_sysd_state *st, const struct r36_sysd_paths 
     memset(st, 0, sizeof(*st));
     st->evdev_fd = -1;
     st->evdev_game_fd = -1;
+    st->gpio19_line_fd = -1;
+    st->gpio15_line_fd = -1;
     if (custom_paths)
         st->paths = *custom_paths;
     else
@@ -262,6 +389,8 @@ static int r36_sysd_init(struct r36_sysd_state *st, const struct r36_sysd_paths 
     st->hp_active_low = 1;
     st->last_amp_enable = -1;
     st->last_bl_raw = -1;
+    st->last_alsa_gain = -1;
+    st->last_alsa_unmute = -1;
     st->max_brightness = r36_read_sysfs_int(st->paths.backlight_max_path, 255);
     if (st->max_brightness <= 0)
         st->max_brightness = 255;

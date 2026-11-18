@@ -229,7 +229,7 @@ def execute(folder, case, full_copy=False, native_decrypt=False):
         cpu.hook_add(un.UC_HOOK_CODE, kernel_entry, begin=entry, end=entry)
         cpu.hook_add(un.UC_HOOK_CODE, start_kernel, begin=symbols["start_kernel"], end=symbols["start_kernel"])
     cpu.emu_start(int(manifest["probe_entry"], 0), 0x83F00000 if handoff else entry,
-                  count=2_000_000_000 if copy_spec or fallback_spec else 100000, timeout=60_000_000)
+                  count=2_000_000_000 if copy_spec or fallback_spec else 100000, timeout=180_000_000)
     stage = get(TRACE + 16)
     if handoff and reached:
         assert reached == ["kernel_entry", "start_kernel"] and case == "success"

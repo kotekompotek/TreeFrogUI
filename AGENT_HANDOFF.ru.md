@@ -1,5 +1,25 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
+## Аппаратные trial-ы до калибровки кнопок (`v24`–`v37`): MTP R/W и FAT32 `rw` подтверждены; I2S DMA работает, но микрофон ПК не уловил 1000 Гц
+
+- **MTP чтение и запись на Linux 7.2 (`v32`):**
+  - Через `powershell -STA` (`Shell.Application`) подтверждены оба направления: чтение с `R36S -> SD card` (`Chkdsk.bat`, `MTP_READ_EXISTS=True`) и запись файла `mtp_test_v24.txt` (`MTP_VISIBLE=mtp_test_v24.txt`, содержимое проверено по `adb shell`: `r36s_mtp_v30_ok`).
+- **FAT32 `rw` и причина `deleting FAT entry beyond EOF` (`v30`–`v37`):**
+  - Выяснилось, что 90-секундный аппаратный watchdog-сброс оставлял `r36-ui-log.txt` / `Dirty bit` без размонтирования, из-за чего при следующем запуске `O_TRUNC` в `r36_session_init` переводил `/mnt/sdcard` в `ro`.
+  - На консоль загружен `r36-fsck-cp437-v2` в `/mnt/sdcard/cubegm/fsck.fat`; в `v30`/`v34`–`v37` он чинил FAT32 (`R36_FSCK_COMPLETE_V1 mode=repair status=1`), после чего `/bin/busybox mount -o remount,rw /mnt/sdcard` возвращал `rw` (`RW_CHECK`).
+  - В [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) заменён флаг `r36-chkdsk` с `--if-kernel-error` на `--no-watchdog` (с удалением `/tmp/fat_meta_snapshot.bin`), однако `r36-fsck-cp437-v2` (`393 КБ` gz) не укладывается в остаток слота `advapi32.dll` без урезания ядра.
+- **Звук и аудиоподсистема (`v30`–`v37`):**
+  - В [r36_sysd.c](file:///d:/r36s-/scripts/peripheral_lab/r36_sysd.c) добавлены: управление ALSA-микшером `/dev/snd/controlC0` (`Master Playback Switch` и `Master Playback Volume`) и управление `GPIO19`/`GPIO15` через `/dev/gpiochip0` (`CONFIG_GPIO_CDEV=y`, так как `CONFIG_GPIO_SYSFS` в Linux 7.2 отключён).
+  - В [stage_audio_driver.py](file:///d:/r36s-/scripts/peripheral_lab/stage_audio_driver.py) добавлена настройка pinmux при холодном старте (`L3/L4/L5 = 2` I2S и `L19 = 0` GPIO на `a->sys + 0x4a3..0x4a5, 0x4b3`), собран и загружен `/mnt/sdcard/cubegm/r36_hc16xx_i2s.ko` (`013cb0f1487e27a1e228071076ac374d`).
+  - **Измерено на железе (`v36` с `L19=0`, `v37` с `L19=1` и `gain=76`):** `r36-audio-test` через `frogui_launch.txt` запускает DMA I2S (`control=00010f01 config=0b110400 rd=100..610 wr=1 gain=76 mute=0`), но `ffmpeg`-запись с микрофона ПК (`Набор микрофонов (Realtek Audio)`) не показала пика 1000 Гц (нужно подтверждение пользователя, слышен ли сигнал динамиком или консоль далеко от микрофона / наушники).
+- **Автоотключение стока и `keepawake`:**
+  - Установлено, что стоковый `nosleep` пропускает патчинг `cubevol` (`rc=1` из-за несовпадения адресов GB350), а `r36_keepawake.sh` терял состояние `/tmp/` после каждого возврата cold-триала на сток.
+  - В [run_restored_cold_trial.py](file:///d:/r36s-/scripts/boot_crypto/run_restored_cold_trial.py) добавлен автоперезапуск `sh /mnt/sdcard/cubegm/r36_keepawake.sh start` при возврате на сток (`stock_restored=true`).
+- **Офлайн-проверки после правок:**
+  - `emulate_loader_fs_probe.py` (`timeout=180_000_000` в [emulate_loader_fs_probe.py](file:///d:/r36s-/scripts/boot_crypto/emulate_loader_fs_probe.py)): `v37` `8/8` + `--native-decrypt` (`passed=true`).
+  - `pytest scripts/peripheral_lab/test_r36_sysd.py scripts/peripheral_lab/test_r36_session_init.py scripts/peripheral_lab/test_audio_probe.py -q`: **`8 passed in 4.07s`**.
+- **Консоль:** возвращена в сток (`v37`, `stock_restored=true`, `native_restore_verified=true`); постоянный переход (`advapi32.dll`) **не выполнялся**.
+
 ## Аппаратные trial-ы полной сессии (`v5`–`v16`): меню TreeFrogUI, крестовина и USB MTP работают; `adb` и полная калибровка кнопок в работе
 
 - **Дисплей и меню TreeFrogUI (`v5`–`v8`):**
