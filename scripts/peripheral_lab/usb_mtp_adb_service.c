@@ -10,12 +10,14 @@
 #ifndef R36_USB_MTP_ADB_MOCK
 #include <dirent.h>
 #include <fcntl.h>
+#include <linux/aio_abi.h>
 #include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -1023,7 +1025,7 @@ static int r36_adb_process_one(struct r36_mtp_adb_runtime *rt,
             return -1;
 
         if (!strncmp(service, "shell:", 6)) {
-            char reply[1024] = {0};
+            char reply[R36_ADB_MAXDATA] = {0};
             const char *cmd = service + 6;
             int rlen = shell_cb ? shell_cb(cmd, reply, sizeof(reply) - 1) : snprintf(reply, sizeof(reply), "OK:%s\n", cmd);
             if (rlen < 0) rlen = 0;
@@ -1223,22 +1225,50 @@ static void r36_usb_handle_sig(int sig)
 
 static int default_shell_cb(const char *cmd, char *out, size_t cap)
 {
-    FILE *fp;
+    int pfd[2];
+    pid_t pid;
     size_t total = 0;
 
     if (!cmd || !cmd[0])
         return snprintf(out, cap, "r36s-shell\n");
-    fp = popen(cmd, "r");
-    if (!fp)
-        return snprintf(out, cap, "popen error: %d\n", errno);
+    if (pipe(pfd) != 0)
+        return snprintf(out, cap, "pipe error: %d\n", errno);
+    pid = fork();
+    if (pid < 0) {
+        int e = errno;
+        close(pfd[0]);
+        close(pfd[1]);
+        return snprintf(out, cap, "fork error: %d\n", e);
+    }
+    if (pid == 0) {
+        int dn = open("/dev/null", O_RDWR);
+        if (dn >= 0) {
+            dup2(dn, 0);
+            if (dn > 2) close(dn);
+        }
+        dup2(pfd[1], 1);
+        dup2(pfd[1], 2);
+        close(pfd[0]);
+        close(pfd[1]);
+        setenv("PATH", "/bin:/sbin:/mnt/sdcard/cubegm", 1);
+        setenv("LD_LIBRARY_PATH", "/mnt/sdcard/cubegm/lib", 1);
+        execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
+        _exit(127);
+    }
+    close(pfd[1]);
     while (total + 1 < cap) {
-        size_t n = fread(out + total, 1, cap - 1 - total, fp);
+        ssize_t n = read(pfd[0], out + total, cap - 1 - total);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
         if (n == 0)
             break;
-        total += n;
+        total += (size_t)n;
     }
+    close(pfd[0]);
+    (void)waitpid(pid, NULL, 0);
     out[total] = '\0';
-    pclose(fp);
     return (int)total;
 }
 
@@ -1309,6 +1339,77 @@ static void *r36_ep0_thread(void *arg)
 static void *r36_adb_thread(void *arg)
 {
     struct r36_mtp_adb_runtime *rt = (struct r36_mtp_adb_runtime *)arg;
+    aio_context_t aio_ctx = 0;
+
+    if (syscall(SYS_io_setup, 4, &aio_ctx) == 0) {
+        enum { N_IOCB = 4, BUF_SZ = 4096 };
+        static uint8_t bufs[N_IOCB][BUF_SZ];
+        struct iocb cbs[N_IOCB];
+        struct iocb *ptrs[N_IOCB];
+        uint8_t stream[R36_ADB_MAXDATA + 8192];
+        size_t slen = 0;
+
+        for (int i = 0; i < N_IOCB; i++) {
+            memset(&cbs[i], 0, sizeof(cbs[i]));
+            cbs[i].aio_fildes = (uint32_t)rt->fds.adb_out;
+            cbs[i].aio_lio_opcode = IOCB_CMD_PREAD;
+            cbs[i].aio_buf = (uint64_t)(uintptr_t)bufs[i];
+            cbs[i].aio_nbytes = BUF_SZ;
+            cbs[i].aio_data = (uint64_t)i;
+            ptrs[i] = &cbs[i];
+            (void)syscall(SYS_io_submit, aio_ctx, 1, &ptrs[i]);
+        }
+
+        while (g_usb_running) {
+            struct io_event evs[N_IOCB];
+            struct timespec ts = { .tv_sec = 0, .tv_nsec = 250000000L };
+            long nr = syscall(SYS_io_getevents, aio_ctx, 1, N_IOCB, evs, &ts);
+            if (nr < 0) {
+                if (errno == EINTR)
+                    continue;
+                usleep(50000);
+                continue;
+            }
+            if (nr == 0)
+                continue;
+            int had_err = 0;
+            for (long k = 0; k < nr; k++) {
+                int idx = (int)evs[k].data;
+                if (evs[k].res > 0) {
+                    size_t n = (size_t)evs[k].res;
+                    if (slen + n > sizeof(stream))
+                        slen = 0;
+                    memcpy(stream + slen, bufs[idx], n);
+                    slen += n;
+                } else {
+                    had_err = 1;
+                }
+                if (g_usb_running)
+                    (void)syscall(SYS_io_submit, aio_ctx, 1, &ptrs[idx]);
+            }
+            while (slen >= sizeof(struct r36_adb_msg)) {
+                struct r36_adb_msg hdr;
+                memcpy(&hdr, stream, sizeof(hdr));
+                if (hdr.magic != (hdr.command ^ 0xffffffffu) || hdr.data_length > R36_ADB_MAXDATA) {
+                    memmove(stream, stream + 1, slen - 1);
+                    slen -= 1;
+                    continue;
+                }
+                size_t total = sizeof(hdr) + hdr.data_length;
+                if (slen < total)
+                    break;
+                (void)r36_adb_process_one(rt, &hdr, hdr.data_length ? (stream + sizeof(hdr)) : NULL, default_shell_cb);
+                if (slen > total)
+                    memmove(stream, stream + total, slen - total);
+                slen -= total;
+            }
+            if (had_err)
+                usleep(50000);
+        }
+        (void)syscall(SYS_io_destroy, aio_ctx);
+        return NULL;
+    }
+
     uint8_t hdr_buf[512];
     uint8_t payload[R36_ADB_MAXDATA + 512];
 

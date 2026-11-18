@@ -15,8 +15,10 @@
   - В [usb_mtp_adb_service.c](file:///d:/r36s-/scripts/peripheral_lab/usb_mtp_adb_service.c):
     - Вместо `poll()` по bulk-эндпоинтам (у `ffs_epfile_operations` в Linux 7.2 нет `.poll`) запущены отдельные потоки: `r36_ep0_thread` (обработка `FUNCTIONFS_SETUP`, включая MTP `Get Device Status` `0x67` и `Cancel` `0x64`), `r36_adb_thread` (буферы кратно 512 Б + `popen` в `default_shell_cb`) и цикл MTP.
     - Реализованы MTP-операции `GetDevicePropDesc` (`0x1014` для `0xD402`) и `GetObjectPropsSupported` (`0x9801`).
-  - **Подтверждено на консоли (`v12`/`v13`):** в Windows `USB\VID_18D1&PID_4E22\R36S-MTP-ADB` определяется (`WUDFWpdMtp` + `WinUSB`), и **MTP полностью работает** — через `Shell.Application` получено хранилище `R36S -> SD card` и полный список файлов/каталогов корня SD-карты.
-  - **`adb` пока остаётся `offline`** (`ADB_TRACE` показал отправку `CNXN` 24+291 и чтение ответа 24+77 в `v13`, но `adb` не перешёл в `device` — требуется отдельная отладка после пробуждения пользователя).
+  - **Подтверждено на консоли (`v12`/`v13`, `v20`/`v21`):**
+    - в Windows `USB\VID_18D1&PID_4E22\R36S-MTP-ADB` определяется (`WUDFWpdMtp` + `WinUSB`);
+    - **MTP полностью работает** — через `Shell.Application` получено хранилище `R36S -> SD card` и полный список файлов/каталогов корня SD-карты;
+    - **ADB полностью работает (`v20`–`v21`):** перевод `r36_adb_thread` на Linux AIO (`SYS_io_setup`/`SYS_io_submit`/`SYS_io_getevents`, 4 буфера по 4096 Б) + `fork`/`execl("/bin/sh")` с `/mnt/sdcard/cubegm/busybox` и симлинком `/bin/sh` в [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) устранил гонку `CNXN`; `adb devices -l` показывает `R36S-MTP-ADB device product:r36s model:R36S device:hc16xx`, а `adb shell "busybox uname -a; busybox cat /proc/bus/input/devices"` вернул `Linux sf3k 7.2.0-rc5-r36full #39 ... mips GNU/Linux` и оба устройства ввода (`event0`, `event1`).
 - **QEMU Build VM:** в [build_vm.py](file:///d:/r36s-/scripts/peripheral_lab/build_vm.py) увеличено `-smp 2` -> `-smp 6` (применится при следующем перезапуске VM).
 - **Офлайн-проверки после финальной правки:** `python -m pytest scripts -q` -> **`313 passed, 14 skipped`**.
 - **Консоль:** возвращена в сток (`stock_restored=true`), постоянный переход (`advapi32.dll`) **не выполнялся**; на стоке и в `r36_sysd.conf` автосон/автовыключение отключены (`screen_off_sec=0`, `auto_poweroff_sec=0`).

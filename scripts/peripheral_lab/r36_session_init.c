@@ -344,6 +344,12 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
         mkdir("/lib", 0755);
         (void)symlink("/mnt/sdcard/cubegm/lib/ld.so.1", "/lib/ld.so.1");
     }
+    if (access("/bin/sh", F_OK) != 0 &&
+        access("/mnt/sdcard/cubegm/busybox", F_OK) == 0) {
+        mkdir("/bin", 0755);
+        (void)symlink("/mnt/sdcard/cubegm/busybox", "/bin/sh");
+        (void)symlink("/mnt/sdcard/cubegm/busybox", "/bin/busybox");
+    }
     if (ctx->cfg.swapfile && access(ctx->cfg.swapfile, F_OK) == 0)
         swap_rc = swapon(ctx->cfg.swapfile, 0);
 #endif
