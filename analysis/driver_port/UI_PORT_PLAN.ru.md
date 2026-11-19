@@ -1,5 +1,16 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## Статус full-session (`v41`–`v43`) и офлайн-аудит эмуляторов (`emulators_offline_v1`)
+
+- **Аппаратные trial-ы `v41`–`v42`:** `kernel_cold_full_session_v41_trial.json` и `v42_trial.json` подтвердили запуск UI/ввода и чистый возврат в сток (`7.2.0-rc5-r36full #40`), но выявили сбой запуска игр (обрезка `CORE_PATH` и потеря аргумента ядра в `r36_session_init.c`), пустой `/sys/class/backlight/` и отсутствие чтения direct-ключей с `event0` в `r36-sysd`.
+- **Правки для `v43` (собраны и проверены офлайн; console disconnected):**
+  - 15-кнопочная `evdev-to-legacy.map` (`v4`), фиксы `r36_sysd.c` (`event0` direct keys, non-zero backlight floor, `/tmp/r36-sysd.diag` + ре-ассерт GPIO19 DIR), фиксы запуска игр/standalone в `r36_session_init.c` (`256`-байтные строки, `picoarch[_hi] CORE ROM`, `/bin/sh` для `.sh`, `TF_DRIVER=` + `PATH`, апплеты busybox) и `pwm-backlight` в `r36-full.dts`.
+  - Ядро и cold-образ `payload/kernel_full_session_v43` / `payload/kernel_cold_full_session_v43` собраны и прошли эмуляцию (`8/8` + `1/1`, `cold_boot_verified=false` до подключения консоли).
+- **Офлайн-аудит в `qemu-mipsel` ([EMULATORS_OFFLINE_v1_RESULT.json](file:///d:/r36s-/analysis/driver_port/EMULATORS_OFFLINE_v1_RESULT.json)):**
+  - `106/113` `.so` (`84` `*_libretro.so`, `22` shim) и `driver_r36_combined_v1.so` прошли `dlopen`; `7` ошибок (`gpsp_multicore_libretro.so` без `__cmpdi2` и `6` стоковых `libemu_*.so`).
+  - Рантайм-прогон `picoarch`/`picoarch_hi` с реальными ROM (`gambatte`, `fceumm`), `rockbox`, `dsperate` (через свой `ld.so.1`) и `9` ключевых ядер подтверждён; найдены 3 точечных пробела standalone (`pcsx4all` просит `/dev/fb0`, `lgpt.elf` требует `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`, `pico286` вызывает `sound_driver_init()` без аргументов).
+  - Полный `pytest`: `313 passed, 14 skipped in 52.01s`.
+
 ## Аппаратный cold trial единого ядра PROFILE=full (`kernel_cold_full_v1`) — PASS
 
 - После перевода `PROFILE=full` на `CONFIG_CC_OPTIMIZE_FOR_SIZE=y` (`-Os`) и модульных `HID`/`RFKILL` образ `vmlinux.bin + r36-lab.dtb` (`3 725 249` Б в `gzip -9`) прошёл эмуляцию (`8/8` + `native_fallback`) и реальный холодный запуск на R36S (`analysis/boot_crypto/kernel_cold_full_v1_trial.json`): `cold_boot_verified=true`, `native_restore_verified=true`, `stock_restored=true`, `7.2.0-rc5-r36full #24`, `usb1` + `usb2` MUSB hubs, `r36-direct-keys` (`input0`) + `r36-serial-keys` (`input1`), `display_inspection=PASS`.

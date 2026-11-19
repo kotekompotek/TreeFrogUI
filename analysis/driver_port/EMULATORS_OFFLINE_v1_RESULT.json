@@ -1,0 +1,240 @@
+{
+  "trial_id": "emulators_offline_v1",
+  "scope": "offline qemu-mipsel (-cpu 74Kf) with console /cubegm/lib/ld.so.1, console glibc 2.19 libs, driver_mock_combined.so (7 ABI exports), and ELF disassembly",
+  "combined_driver_dlopen": {
+    "path": "analysis/driver_port/driver_r36_combined_v1.so",
+    "status": "PASS",
+    "exports_verified": 7
+  },
+  "cores_dlopen_and_retro_info": {
+    "total_so_files": 113,
+    "passed_total": 106,
+    "libretro_cores_passed": 84,
+    "shim_so_passed": 22,
+    "failed_total": 7,
+    "failed": [
+      {
+        "file": "gpsp_multicore_libretro.so",
+        "error": "err=/work/cubegm_verify/cores/gpsp_multicore_libretro.so: undefined symbol: __cmpdi2"
+      },
+      {
+        "file": "libemu_fba3100.so",
+        "error": "err=/work/cubegm_verify/cores/libemu_fba3100.so: undefined symbol: _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_"
+      },
+      {
+        "file": "libemu_nes.so",
+        "error": "err=/work/cubegm_verify/cores/libemu_nes.so: undefined symbol: __fixdfdi"
+      },
+      {
+        "file": "libemu_nestopia.so",
+        "error": "err=/work/cubegm_verify/cores/libemu_nestopia.so: undefined symbol: _ZNSi4peekEv"
+      },
+      {
+        "file": "libemu_pgm.so",
+        "error": "err=/work/cubegm_verify/cores/libemu_pgm.so: undefined symbol: _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_"
+      },
+      {
+        "file": "libemu_stella.so",
+        "error": "err=/work/cubegm_verify/cores/libemu_stella.so: undefined symbol: _ZNSi4peekEv"
+      },
+      {
+        "file": "libemu_vbam.so",
+        "error": "err=/work/cubegm_verify/cores/libemu_vbam.so: undefined symbol: _ZSt19__throw_logic_errorPKc"
+      }
+    ],
+    "libretro_cores_passed_list": [
+      "81_libretro.so",
+      "a5200_libretro.so",
+      "ardens_libretro.so",
+      "arduous_libretro.so",
+      "atari800_libretro.so",
+      "cannonball_libretro.so",
+      "cap32_libretro.so",
+      "castaway_libretro.so",
+      "crocods_libretro.so",
+      "ecwolf_libretro.so",
+      "fake08_libretro.so",
+      "fbalpha2012_cps1_libretro.so",
+      "fbalpha2012_cps2_libretro.so",
+      "fbalpha2012_cps3_libretro.so",
+      "fbalpha2012_neogeo_libretro.so",
+      "fbneo_libretro.so",
+      "fceumm_libretro.so",
+      "freechaf_libretro.so",
+      "freeintv_libretro.so",
+      "frodo_libretro.so",
+      "frogshell_libretro.so",
+      "frogui_libretro.so",
+      "fuse_libretro.so",
+      "gambatte_libretro.so",
+      "gearboy_libretro.so",
+      "gearcoleco_libretro.so",
+      "gearsystem_libretro.so",
+      "genesis_plus_gx_libretro.so",
+      "geolith_libretro.so",
+      "gme_libretro.so",
+      "gong_libretro.so",
+      "gpsp_libretro.so",
+      "gw_libretro.so",
+      "handy_libretro.so",
+      "j2me_libretro.so",
+      "jumpnbump_libretro.so",
+      "lowresnx_libretro.so",
+      "mame2000_libretro.so",
+      "mame2003_plus_libretro.so",
+      "mednafen_lynx_libretro.so",
+      "mednafen_pce_fast_libretro.so",
+      "mednafen_pcfx_libretro.so",
+      "mednafen_supergrafx_libretro.so",
+      "mednafen_vb_libretro.so",
+      "mednafen_wswan_libretro.so",
+      "mgba_libretro.so",
+      "nestopia_libretro.so",
+      "nxengine_libretro.so",
+      "o2em_libretro.so",
+      "openbor_libretro.so",
+      "pcsx_rearmed_libretro.so",
+      "picante8_libretro.so",
+      "picodrive_libretro.so",
+      "pocketcdg_libretro.so",
+      "pokemini_libretro.so",
+      "pokket_libretro.so",
+      "potator_libretro.so",
+      "ppsspp_libretro.so",
+      "prboom_libretro.so",
+      "prosystem_libretro.so",
+      "qpsx_libretro.so",
+      "quasi88_libretro.so",
+      "quicknes_libretro.so",
+      "race_libretro.so",
+      "reminiscence_libretro.so",
+      "retro8_libretro.so",
+      "scummvm_libretro.so",
+      "snes9x-Z_libretro.so",
+      "snes9x2002_libretro.so",
+      "snes9x2005_libretro.so",
+      "snes9x2005_plus_libretro.so",
+      "snes9x2010_libretro.so",
+      "stella2014_libretro.so",
+      "tgbdual_libretro.so",
+      "theodore_libretro.so",
+      "tic80_libretro.so",
+      "tyrquake_libretro.so",
+      "uae_libretro.so",
+      "vba_next_libretro.so",
+      "vecx_libretro.so",
+      "vice_x64_libretro.so",
+      "vitaquake2_libretro.so",
+      "x68k_libretro.so",
+      "xrick_libretro.so"
+    ],
+    "shim_so_passed_list": [
+      "libemu_a5200.so",
+      "libemu_capcom.so",
+      "libemu_cps2.so",
+      "libemu_extend.so",
+      "libemu_fba.so",
+      "libemu_fbafast.so",
+      "libemu_fbalpha.so",
+      "libemu_fbalpha2012.so",
+      "libemu_gpsp.so",
+      "libemu_handy.so",
+      "libemu_lynx.so",
+      "libemu_mame2000.so",
+      "libemu_md.so",
+      "libemu_mgba.so",
+      "libemu_ngp.so",
+      "libemu_pce.so",
+      "libemu_prosystem.so",
+      "libemu_sfc.so",
+      "libemu_snes9x.so",
+      "libemu_snes9x2010.so",
+      "libemu_tgbdual.so",
+      "libemu_wswan.so"
+    ]
+  },
+  "frogui_core_mapping_audit": {
+    "referenced_cores_count": 90,
+    "referenced_and_passed_count": 80,
+    "referenced_and_failed": [
+      "gpsp_multicore_libretro.so"
+    ],
+    "referenced_but_absent_from_cubegm_cores": [
+      "bluemsx_libretro.so",
+      "butterscotch_libretro.so",
+      "classicube_libretro.so",
+      "duke3d_libretro.so",
+      "jaxe_libretro.so",
+      "mcpe_libretro.so",
+      "openclaw_libretro.so",
+      "vaporspec_libretro.so",
+      "vice_xvic_libretro.so"
+    ]
+  },
+  "qemu_mipsel_runtime_smoke": {
+    "picoarch_with_gambatte_and_input_test_gb": {
+      "rc": 0,
+      "status": "PASS",
+      "notes": "video_drivers_init, sound_driver_init(48000,2), rendered 5 frames (160x144)"
+    },
+    "picoarch_with_fceumm_and_input_test_nes": {
+      "rc": 0,
+      "status": "PASS",
+      "notes": "video_drivers_init, sound_driver_init(48000,2), rendered 5 frames (256x224)"
+    },
+    "picoarch_hi_with_gambatte_and_input_test_gb": {
+      "rc": 0,
+      "status": "PASS",
+      "notes": "video_drivers_init, sound_driver_init(48000,2), rendered 5 frames (160x144)"
+    },
+    "picoarch_with_frogui_no_rom": {
+      "rc": 255,
+      "status": "INIT_OK",
+      "notes": "dlopen + video_drivers_init + sound_driver_init(48000,2) succeeded; exited 255 because frogui requires UI/ROM flow or assets"
+    },
+    "picoarch_and_picoarch_hi_no_rom_core_init": {
+      "status": "INIT_OK",
+      "cores_tested": [
+        "picodrive_libretro.so",
+        "genesis_plus_gx_libretro.so",
+        "snes9x2005_plus_libretro.so",
+        "stella2014_libretro.so",
+        "fbneo_libretro.so",
+        "gpsp_libretro.so",
+        "mgba_libretro.so",
+        "pcsx_rearmed_libretro.so",
+        "ppsspp_libretro.so"
+      ],
+      "notes": "All 9 passed video_drivers_init + sound_driver_init(48000,2) before exiting rc=255 due to omitted ROM argument"
+    },
+    "rockbox": {
+      "rc": 0,
+      "status": "PASS",
+      "notes": "With SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy (as set by rockbox.sh), initialized video + sound_driver_init(48000,2) and rendered 2 frames (320x240)"
+    },
+    "dsperate": {
+      "rc": 0,
+      "status": "PASS",
+      "notes": "With its own dsperate/lib/ld.so.1 and dsperate/lib, --help, --version, and BootMenu.nds CLI validation executed cleanly; fails against main /cubegm/lib libc due to GLIBC_2.25..2.36 requirement if own ld.so.1 is not used"
+    },
+    "pico286": {
+      "rc": 0,
+      "status": "PARTIAL_AUDIO_ABI_GAP",
+      "notes": "Rendered 2 frames (640x480) via video_driver_disp_frame; however disasm 0x00401f44..0x00401f50 shows pico286 calls sound_driver_init() with 0 args, leaving junk rate/channels that audio_alsa_backend.c (<8000 Hz check) rejects with -1"
+    },
+    "lgpt_elf": {
+      "rc": 139,
+      "status": "REQUIRES_SDL_DUMMY_ENV",
+      "notes": "Segfaults without SDL_VIDEODRIVER=dummy when /dev/fb0 is absent; with SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy initialized SDL + video_drivers_init and rendered frame #1 (640x480) before segfaulting later without project/assets"
+    },
+    "pcsx4all": {
+      "rc": 1,
+      "status": "BLOCKED_WITHOUT_DEV_FB0",
+      "notes": "Unconditionally calls open(/dev/fb0, O_RDWR) at 0x004071d0 even with TF_DRIVER and SDL_VIDEODRIVER=dummy; exits rc=1 when CONFIG_DRM_FBDEV_EMULATION is disabled. Use pcsx_rearmed_libretro.so via picoarch_hi instead unless /dev/fb0 is enabled"
+    },
+    "r36_tfkey_and_legacy_keys": {
+      "status": "CLI_AND_SHM_ATTACH_OK",
+      "notes": "r36-tfkey dump attached to /tmp/joy_key SysV shm cleanly (rc=0); r36-legacy-keys CLI/usage verified; full SysV shm bitmask tests covered by pytest"
+    }
+  }
+}

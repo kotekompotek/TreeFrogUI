@@ -20,6 +20,7 @@ def test_r36_session_init_bootstrap_launch_and_shutdown(tmp_path):
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <setjmp.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,10 +42,11 @@ static int mock_swapoff_calls = 0;
 static int mock_reboot_calls = 0;
 static int next_pid = 100;
 static int fork_seq = 0;
-static char spawned_cmds[16][128];
+static char spawned_cmds[32][256];
 static int spawned_count = 0;
-static int stopped_pids[16];
+static int stopped_pids[32];
 static int stopped_count = 0;
+static jmp_buf fork_jmp;
 
 static int mock_access(const char *p, int mode) {{
     (void)mode;
@@ -53,6 +55,7 @@ static int mock_access(const char *p, int mode) {{
     if (!strcmp(p, "/sbin/r36-sysd")) return 0;
     if (!strcmp(p, "/mnt/sdcard/cubegm/r36-legacy-keys")) return 0;
     if (!strcmp(p, "/sbin/r36-usb-mtp-adb")) return 0;
+    if (!strcmp(p, "/mnt/sdcard/cubegm/picoarch_hi")) return 0;
     if (!strcmp(p, "{drv.as_posix()}")) return 0;
     if (!strcmp(p, "{pwr_flag.as_posix()}")) return access(p, mode);
     return -1;
@@ -70,8 +73,19 @@ static int mock_chdir(const char *p) {{ (void)p; return 0; }}
 static void mock_sync(void) {{}}
 static int mock_usleep(unsigned int u) {{ (void)u; return 0; }}
 static int mock_setenv(const char *k, const char *v, int ov) {{ (void)k; (void)v; (void)ov; return 0; }}
-static int mock_fork(void) {{ fork_seq++; return ++next_pid; }}
-static int mock_execv(const char *p, char *const argv[]) {{ (void)p; (void)argv; return 0; }}
+static int mock_execv(const char *p, char *const argv[]) {{
+    (void)p;
+    if (spawned_count < 32) {{
+        snprintf(spawned_cmds[spawned_count], sizeof(spawned_cmds[spawned_count]),
+                 "%s|%s|%s",
+                 argv[0] ? argv[0] : "",
+                 argv[1] ? argv[1] : "",
+                 (argv[1] && argv[2]) ? argv[2] : "");
+        spawned_count++;
+    }}
+    return 0;
+}}
+static void mock__exit(int status) {{ (void)status; longjmp(fork_jmp, 1); }}
 static int mock_kill(int pid, int sig) {{ (void)sig; stopped_pids[stopped_count++] = pid; return 0; }}
 static int mock_waitpid(int pid, int *st, int opts) {{
     (void)opts;
@@ -81,6 +95,8 @@ static int mock_waitpid(int pid, int *st, int opts) {{
     }}
     return (opts != 0) ? 0 : pid;
 }}
+
+/* Override r36_spawn_prog cleanly by wrapping fork/execv/_exit via inline setjmp */
 
 /* Override r36_spawn_prog cleanly by wrapping fork/waitpid via mock_spawn trace */
 #define open    host_open
@@ -96,18 +112,18 @@ static int mock_waitpid(int pid, int *st, int opts) {{
 #define sync    mock_sync
 #define usleep  mock_usleep
 #define setenv  mock_setenv
-#define fork    mock_fork
+#define fork()  (setjmp(fork_jmp) == 0 ? 0 : ++next_pid)
 #define execv   mock_execv
+#define _exit   mock__exit
 #define kill    mock_kill
 #define waitpid mock_waitpid
 
-/* Capture spawned argv[0] via macro intercept of r36_spawn_prog? Better: wrap after include! */
 #include "{src.as_posix()}"
 
 int main(void) {{
     struct r36_session_cfg cfg;
     struct r36_session_ctx ctx;
-    (void)spawned_cmds; (void)fork_seq;
+    (void)fork_seq;
 
     r36_session_default_cfg(&cfg);
     cfg.driver_so = "{drv.as_posix()}";
@@ -117,7 +133,7 @@ int main(void) {{
 
     /* 1. Failed pre-mount chkdsk MUST abort before mount() is ever called */
     mock_chkdsk_rc = 2;
-    spawned_count = 1;
+    spawned_count = 0;
     assert(r36_session_bootstrap(&ctx, &cfg) == -2);
     assert(mock_mount_calls == 0 && ctx.sd_mounted == 0);
 
@@ -133,14 +149,37 @@ int main(void) {{
     assert(ctx.ui_pid > 0);
     int first_ui_pid = ctx.ui_pid;
 
-    /* 4. Launch request stops UI, runs core synchronously, and restarts UI */
+    /* 4a. Direct FrogUI libretro launch (<core>\\n<rom>\\n, core >32 chars) */
+    int idx_before = spawned_count;
     FILE *lf = fopen("{launch.as_posix()}", "w");
     assert(lf != NULL);
-    fprintf(lf, "libretro\\n/mnt/sdcard/cubegm/cores/gambatte_libretro.so\\n/mnt/sdcard/roms/gb/test.gb\\n");
+    fprintf(lf, "/mnt/sdcard/cubegm/cores/picodrive_libretro.so\\n/mnt/sdcard/roms/MD/Sonic.zip\\n");
     fclose(lf);
     assert(r36_session_step(&ctx) == 0);
     assert(ctx.ui_pid > first_ui_pid);
     assert(stopped_count >= 1 && stopped_pids[0] == first_ui_pid);
+    assert(strcmp(spawned_cmds[idx_before],
+                  "/mnt/sdcard/cubegm/picoarch|/mnt/sdcard/cubegm/cores/picodrive_libretro.so|/mnt/sdcard/roms/MD/Sonic.zip") == 0);
+
+    /* 4b. High-mem core (gpsp/pcsx) routes to picoarch_hi */
+    idx_before = spawned_count;
+    lf = fopen("{launch.as_posix()}", "w");
+    assert(lf != NULL);
+    fprintf(lf, "/mnt/sdcard/cubegm/cores/gpsp_libretro.so\\n/mnt/sdcard/roms/GBA/test.gba\\n");
+    fclose(lf);
+    assert(r36_session_step(&ctx) == 0);
+    assert(strcmp(spawned_cmds[idx_before],
+                  "/mnt/sdcard/cubegm/picoarch_hi|/mnt/sdcard/cubegm/cores/gpsp_libretro.so|/mnt/sdcard/roms/GBA/test.gba") == 0);
+
+    /* 4c. Standalone .sh wrapper invokes /bin/sh */
+    idx_before = spawned_count;
+    lf = fopen("{launch.as_posix()}", "w");
+    assert(lf != NULL);
+    fprintf(lf, "standalone\\n/mnt/sdcard/cubegm/dsperate/run_sf3000.sh\\n/mnt/sdcard/roms/NDS/game.nds\\n");
+    fclose(lf);
+    assert(r36_session_step(&ctx) == 0);
+    assert(strcmp(spawned_cmds[idx_before],
+                  "/bin/sh|/mnt/sdcard/cubegm/dsperate/run_sf3000.sh|/mnt/sdcard/roms/NDS/game.nds") == 0);
 
     /* 5. Poweroff request cleanly stops all children, swapoff, umount, RB_POWER_OFF */
     FILE *pf = fopen("{pwr_flag.as_posix()}", "w");
@@ -167,7 +206,9 @@ int main(void) {{
     )
     res = subprocess.run([str(exe)], check=True, capture_output=True, text=True, timeout=5)
     assert "R36_SESSION_INIT=PASS" in res.stdout
-    assert "TF_DEVICE=GB350" in tfenv.read_text()
+    env_text = tfenv.read_text()
+    assert "TF_DEVICE=GB350" in env_text
+    assert f"TF_DRIVER={drv.as_posix()}" in env_text
 
     if ZIG.exists():
         mips_elf = tmp_path / "r36-session-init.elf"

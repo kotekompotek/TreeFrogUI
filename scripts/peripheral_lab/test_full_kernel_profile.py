@@ -15,6 +15,8 @@ def test_r36_full_dts_contains_all_subsystems():
         "r36lab,hc16xx-adc-ro",
         '&r36_display { status = "okay"; };',
         '&r36_audio { status = "okay"; };',
+        'compatible = "pwm-backlight";',
+        'backlight_pins: pins-bl',
         '&usb0 { status = "okay"; dr_mode = "peripheral"; };',
         '&usb1 { status = "okay"; dr_mode = "host"; };',
     ):

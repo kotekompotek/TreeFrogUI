@@ -178,6 +178,8 @@ static int r36_sysd_apply_backlight(struct r36_sysd_state *st)
     int pct = st->sleeping ? 0 : (st->dim_active ? st->dim_pct : st->keys.brightness_pct);
     int raw = (pct * st->max_brightness) / 100;
 
+    if (pct > 0 && raw == 0 && st->max_brightness > 0)
+        raw = 1;
     if (raw == st->last_bl_raw)
         return 0;
     if (r36_write_sysfs_int(st->paths.backlight_cur_path, raw) == 0) {
@@ -277,18 +279,30 @@ static int r36_hw_gpio15_get(struct r36_sysd_state *st, int fallback)
 static int r36_hw_gpio19_set_amp(struct r36_sysd_state *st, int en)
 {
 #ifndef R36_SYSD_MOCK
+    static int diag_written = 0;
     volatile uint8_t *base = r36_hw_gpio_map(st);
     if (!base)
         return -1;
     volatile uint32_t *out_reg = (volatile uint32_t *)(base + 0x54);
     volatile uint32_t *dir_reg = (volatile uint32_t *)(base + 0x58);
-    uint32_t v = *out_reg;
+    uint32_t out_before = *out_reg;
+    uint32_t dir_before = *dir_reg;
+    uint32_t v = out_before;
     if (en)
         v &= ~(1u << 19); /* L19 is active-high speaker mute: 0 = unmuted */
     else
         v |= (1u << 19);
     *out_reg = v;
-    *dir_reg |= (1u << 19);
+    *dir_reg = dir_before | (1u << 19);
+    if (!diag_written) {
+        FILE *df = fopen("/tmp/r36-sysd.diag", "w");
+        if (df) {
+            fprintf(df, "en=%d max_bl=%d out_before=0x%08x out_after=0x%08x dir_before=0x%08x dir_after=0x%08x\n",
+                    en, st->max_brightness, out_before, *out_reg, dir_before, *dir_reg);
+            fclose(df);
+        }
+        diag_written = 1;
+    }
     return 0;
 #else
     (void)st;
@@ -305,6 +319,13 @@ static int r36_sysd_apply_speaker_amp(struct r36_sysd_state *st)
     int en = r36_speaker_amp_should_enable(hp_lvl, st->hp_active_low, st->muted,
                                            st->keys.volume_pct, st->sleeping);
     r36_sysd_apply_alsa_mixer(st);
+#ifndef R36_SYSD_MOCK
+    if (st->gpio_mmap) {
+        volatile uint32_t *dir_reg = (volatile uint32_t *)((volatile uint8_t *)st->gpio_mmap + 0x58);
+        if ((*dir_reg & (1u << 19)) == 0)
+            st->last_amp_enable = -1;
+    }
+#endif
     if (en == st->last_amp_enable)
         return 0;
     if (r36_write_sysfs_int(st->paths.gpio19_amp_path, en) == 0 ||
@@ -508,7 +529,7 @@ static int r36_sysd_step(struct r36_sysd_state *st, uint64_t now_ms)
 
     if (r36_sysd_drain_evdev(st, st->evdev_fd, 1, now_ms) != 0)
         return -1;
-    if (st->evdev_game_fd >= 0 && r36_sysd_drain_evdev(st, st->evdev_game_fd, 0, now_ms) != 0) {
+    if (st->evdev_game_fd >= 0 && r36_sysd_drain_evdev(st, st->evdev_game_fd, 1, now_ms) != 0) {
         close(st->evdev_game_fd);
         st->evdev_game_fd = -1;
     }

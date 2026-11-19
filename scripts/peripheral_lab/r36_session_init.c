@@ -77,6 +77,7 @@ struct r36_session_cfg {
     const char *keys_map;
     const char *usb_bin;
     const char *picoarch_bin;
+    const char *picoarch_hi_bin;
     const char *frogui_core;
     const char *driver_so;
     const char *tfdevice_env_path;
@@ -106,6 +107,7 @@ static void r36_session_default_cfg(struct r36_session_cfg *c)
     c->keys_map = "/mnt/sdcard/cubegm/evdev-to-legacy.map";
     c->usb_bin = "/sbin/r36-usb-mtp-adb";
     c->picoarch_bin = "/mnt/sdcard/cubegm/picoarch";
+    c->picoarch_hi_bin = "/mnt/sdcard/cubegm/picoarch_hi";
     c->frogui_core = "/mnt/sdcard/cubegm/cores/frogui_libretro.so";
     c->driver_so = "/mnt/sdcard/cubegm/driver_r36_combined.so";
     c->tfdevice_env_path = "/tmp/tfdevice.env";
@@ -116,31 +118,41 @@ static void r36_session_default_cfg(struct r36_session_cfg *c)
 
 static int r36_write_tfdevice_env(const struct r36_session_cfg *c)
 {
-    static const char body[] =
-        "TF_DEVICE=GB350\n"
-        "TF_PANEL_W=640\n"
-        "TF_PANEL_H=480\n"
-        "TF_UI_SCALE=150\n"
-        "TF_ASPECT_NUM=4\n"
-        "TF_ASPECT_DEN=3\n"
-        "TF_ROTATE=0\n"
-        "TF_PRESENT=dispframe\n";
-    int fd;
-    size_t len = sizeof(body) - 1u;
+    char body[512];
+    const char *drv = (c && c->driver_so && c->driver_so[0])
+                          ? c->driver_so
+                          : "/mnt/sdcard/cubegm/driver_r36_combined.so";
+    int fd, blen;
     ssize_t n;
 
     if (!c || !c->tfdevice_env_path)
         return -1;
+    blen = snprintf(body, sizeof(body),
+                    "TF_DEVICE=GB350\n"
+                    "TF_PANEL_W=640\n"
+                    "TF_PANEL_H=480\n"
+                    "TF_UI_SCALE=150\n"
+                    "TF_ASPECT_NUM=4\n"
+                    "TF_ASPECT_DEN=3\n"
+                    "TF_ROTATE=0\n"
+                    "TF_PRESENT=dispframe\n"
+                    "TF_DRIVER=%s\n",
+                    drv);
+    if (blen <= 0 || (size_t)blen >= sizeof(body))
+        return -1;
     fd = open(c->tfdevice_env_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
     if (fd < 0)
         return -1;
-    n = write(fd, body, len);
+    n = write(fd, body, (size_t)blen);
     close(fd);
-    if (n != (ssize_t)len)
+    if (n != (ssize_t)blen)
         return -1;
 
-    if (c->driver_so && access(c->driver_so, F_OK) == 0)
+    if (c->driver_so && access(c->driver_so, F_OK) == 0) {
         setenv("PICOARCH_DRIVER", c->driver_so, 1);
+        setenv("TF_DRIVER", c->driver_so, 1);
+    }
+    setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin:/mnt/sdcard/cubegm", 1);
     setenv("LD_LIBRARY_PATH", "/mnt/sdcard/cubegm/lib:/mnt/sdcard/cubegm/usr/lib", 1);
     return 0;
 }
@@ -177,10 +189,10 @@ static pid_t r36_spawn_prog(const char *const argv[])
     return r36_spawn_prog_logged(argv, NULL);
 }
 
-static int r36_run_sync_cmd(const char *const argv[])
+static int r36_run_sync_logged(const char *const argv[], const char *log_path)
 {
     int status = 0;
-    pid_t pid = r36_spawn_prog(argv);
+    pid_t pid = r36_spawn_prog_logged(argv, log_path);
     pid_t got;
     if (pid < 0)
         return -1;
@@ -190,6 +202,11 @@ static int r36_run_sync_cmd(const char *const argv[])
     if (got != pid || !WIFEXITED(status))
         return -1;
     return WEXITSTATUS(status);
+}
+
+static int r36_run_sync_cmd(const char *const argv[])
+{
+    return r36_run_sync_logged(argv, NULL);
 }
 
 static void r36_stop_child(pid_t *pid)
@@ -353,12 +370,18 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
             "/bin/ps", "/bin/dmesg", "/bin/lsmod", "/bin/insmod", "/bin/df",
             "/bin/free", "/bin/grep", "/bin/head", "/bin/tail", "/bin/hexdump",
             "/bin/kill", "/bin/mkdir", "/bin/rm", "/bin/cp", "/bin/mv",
-            "/bin/chmod", "/bin/sync", "/bin/sleep", NULL
+            "/bin/chmod", "/bin/sync", "/bin/sleep", "/bin/dirname",
+            "/bin/basename", "/bin/pwd", "/bin/tr", "/bin/sed", "/bin/cut",
+            "/bin/wc", "/bin/find", "/bin/ln", "/bin/touch", "/bin/pidof",
+            "/bin/killall", "/bin/which", "/bin/test", "/bin/[", "/bin/echo",
+            "/bin/printf", "/bin/env", "/bin/awk", "/bin/readlink", "/bin/expr",
+            NULL
         };
         mkdir("/bin", 0755);
         for (int i = 0; applets[i]; i++)
             (void)symlink("/mnt/sdcard/cubegm/busybox", applets[i]);
     }
+    mkdir("/dev/shm", 01777);
     if (ctx->cfg.swapfile && access(ctx->cfg.swapfile, F_OK) == 0)
         swap_rc = swapon(ctx->cfg.swapfile, 0);
 #endif
@@ -412,29 +435,45 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
     return 0;
 }
 
-static int r36_read_launch_request(const char *path, char kind[32], char bin[256], char arg[256])
+static int r36_ends_with(const char *s, const char *suffix)
+{
+    size_t slen, suflen;
+    if (!s || !suffix)
+        return 0;
+    slen = strlen(s);
+    suflen = strlen(suffix);
+    return (slen >= suflen && strcmp(s + slen - suflen, suffix) == 0) ? 1 : 0;
+}
+
+static int r36_use_picoarch_hi(const char *core_path)
+{
+    if (!core_path)
+        return 0;
+    return (strstr(core_path, "gpsp") || strstr(core_path, "pcsx") ||
+            strstr(core_path, "ps1") || strstr(core_path, "ppsspp")) ? 1 : 0;
+}
+
+static int r36_read_launch_request(const char *path, char line1[256], char line2[256], char line3[256])
 {
     FILE *f;
-    size_t n;
 
-    if (!path || !kind || !bin || !arg)
+    if (!path || !line1 || !line2 || !line3)
         return 0;
     f = fopen(path, "r");
     if (!f)
         return 0;
-    kind[0] = bin[0] = arg[0] = '\0';
-    if (!fgets(kind, 32, f) || !fgets(bin, 256, f)) {
+    line1[0] = line2[0] = line3[0] = '\0';
+    if (!fgets(line1, 256, f) || !fgets(line2, 256, f)) {
         fclose(f);
         return 0;
     }
-    (void)fgets(arg, 256, f);
+    (void)fgets(line3, 256, f);
     fclose(f);
 
-    for (char *s = kind; *s; s++) if (*s == '\n' || *s == '\r') *s = '\0';
-    for (char *s = bin; *s; s++) if (*s == '\n' || *s == '\r') *s = '\0';
-    for (char *s = arg; *s; s++) if (*s == '\n' || *s == '\r') *s = '\0';
-    n = strlen(bin);
-    return n > 0u ? 1 : 0;
+    for (char *s = line1; *s; s++) if (*s == '\n' || *s == '\r') *s = '\0';
+    for (char *s = line2; *s; s++) if (*s == '\n' || *s == '\r') *s = '\0';
+    for (char *s = line3; *s; s++) if (*s == '\n' || *s == '\r') *s = '\0';
+    return (line1[0] != '\0' && line2[0] != '\0') ? 1 : 0;
 }
 
 static int r36_session_launch_ui(struct r36_session_ctx *ctx)
@@ -461,7 +500,7 @@ static int r36_session_launch_ui(struct r36_session_ctx *ctx)
 
 static int r36_session_step(struct r36_session_ctx *ctx)
 {
-    char kind[32], bin[256], arg[256];
+    char line1[256], line2[256], line3[256];
 
     if (!ctx)
         return -1;
@@ -471,23 +510,37 @@ static int r36_session_step(struct r36_session_ctx *ctx)
         return 1;
     }
 
+    if (ctx->cfg.launch_file && r36_read_launch_request(ctx->cfg.launch_file, line1, line2, line3)) {
+        (void)unlink(ctx->cfg.launch_file);
+        r36_stop_child(&ctx->ui_pid);
+        if (strcmp(line1, "standalone") == 0) {
+            if (r36_ends_with(line2, ".sh")) {
+                const char *const argv[] = { "/bin/sh", line2, line3[0] ? line3 : NULL, NULL };
+                (void)r36_run_sync_logged(argv, "/mnt/sdcard/cubegm/logs/last_game.log");
+            } else {
+                const char *const argv[] = { line2, line3[0] ? line3 : NULL, NULL };
+                (void)r36_run_sync_logged(argv, "/mnt/sdcard/cubegm/logs/last_game.log");
+            }
+        } else {
+            /* frogUI writes <core_path>\n<rom_path>\n; backward-compatible if line1 == "libretro". */
+            const char *core = (strcmp(line1, "libretro") == 0) ? line2 : line1;
+            const char *rom = (strcmp(line1, "libretro") == 0) ? line3 : line2;
+            const char *bin = ctx->cfg.picoarch_bin;
+            if (r36_use_picoarch_hi(core) && ctx->cfg.picoarch_hi_bin &&
+                access(ctx->cfg.picoarch_hi_bin, F_OK) == 0)
+                bin = ctx->cfg.picoarch_hi_bin;
+            const char *const argv[] = { bin, core, rom[0] ? rom : NULL, NULL };
+            (void)r36_run_sync_logged(argv, "/mnt/sdcard/cubegm/logs/last_game.log");
+        }
+        if (!r36_read_launch_request(ctx->cfg.launch_file, line1, line2, line3))
+            (void)r36_session_launch_ui(ctx);
+        return 0;
+    }
+
     if (ctx->ui_pid <= 0) {
         if (r36_session_launch_ui(ctx) != 0)
             return -1;
-    }
-
-    if (ctx->cfg.launch_file && r36_read_launch_request(ctx->cfg.launch_file, kind, bin, arg)) {
-        (void)unlink(ctx->cfg.launch_file);
-        r36_stop_child(&ctx->ui_pid);
-        if (strcmp(kind, "standalone") == 0) {
-            const char *const argv[] = { bin, arg[0] ? arg : NULL, NULL };
-            (void)r36_run_sync_cmd(argv);
-        } else {
-            const char *const argv[] = { ctx->cfg.picoarch_bin, bin, arg[0] ? arg : NULL, NULL };
-            (void)r36_run_sync_cmd(argv);
-        }
-        (void)r36_session_launch_ui(ctx);
-    } else if (ctx->ui_pid > 0) {
+    } else {
         int status = 0;
         pid_t got = waitpid(ctx->ui_pid, &status, WNOHANG);
         if (got == ctx->ui_pid)
