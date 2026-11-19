@@ -56,6 +56,7 @@ static int mock_access(const char *p, int mode) {{
     if (!strcmp(p, "/mnt/sdcard/cubegm/r36-legacy-keys")) return 0;
     if (!strcmp(p, "/sbin/r36-usb-mtp-adb")) return 0;
     if (!strcmp(p, "/mnt/sdcard/cubegm/picoarch_hi")) return 0;
+    if (!strcmp(p, "/mnt/sdcard/cubegm/cores/gpsp_libretro.so")) return 0;
     if (!strcmp(p, "{drv.as_posix()}")) return 0;
     if (!strcmp(p, "{pwr_flag.as_posix()}")) return access(p, mode);
     return -1;
@@ -72,7 +73,14 @@ static int mock_reboot(unsigned int cmd) {{ (void)cmd; mock_reboot_calls++; retu
 static int mock_chdir(const char *p) {{ (void)p; return 0; }}
 static void mock_sync(void) {{}}
 static int mock_usleep(unsigned int u) {{ (void)u; return 0; }}
-static int mock_setenv(const char *k, const char *v, int ov) {{ (void)k; (void)v; (void)ov; return 0; }}
+static int mock_sdl_vid_dummy = 0;
+static int mock_sdl_aud_dummy = 0;
+static int mock_setenv(const char *k, const char *v, int ov) {{
+    (void)ov;
+    if (!strcmp(k, "SDL_VIDEODRIVER") && !strcmp(v, "dummy")) mock_sdl_vid_dummy = 1;
+    if (!strcmp(k, "SDL_AUDIODRIVER") && !strcmp(v, "dummy")) mock_sdl_aud_dummy = 1;
+    return 0;
+}}
 static int mock_execv(const char *p, char *const argv[]) {{
     (void)p;
     if (spawned_count < 32) {{
@@ -170,6 +178,17 @@ int main(void) {{
     assert(r36_session_step(&ctx) == 0);
     assert(strcmp(spawned_cmds[idx_before],
                   "/mnt/sdcard/cubegm/picoarch_hi|/mnt/sdcard/cubegm/cores/gpsp_libretro.so|/mnt/sdcard/roms/GBA/test.gba") == 0);
+
+    /* 4b2. Broken gpsp_multicore_libretro.so seamlessly redirects to gpsp_libretro.so */
+    idx_before = spawned_count;
+    lf = fopen("{launch.as_posix()}", "w");
+    assert(lf != NULL);
+    fprintf(lf, "/mnt/sdcard/cubegm/cores/gpsp_multicore_libretro.so\\n/mnt/sdcard/roms/GBA/mc.gba\\n");
+    fclose(lf);
+    assert(r36_session_step(&ctx) == 0);
+    assert(strcmp(spawned_cmds[idx_before],
+                  "/mnt/sdcard/cubegm/picoarch_hi|/mnt/sdcard/cubegm/cores/gpsp_libretro.so|/mnt/sdcard/roms/GBA/mc.gba") == 0);
+    assert(mock_sdl_vid_dummy == 1 && mock_sdl_aud_dummy == 1);
 
     /* 4c. Standalone .sh wrapper invokes /bin/sh */
     idx_before = spawned_count;

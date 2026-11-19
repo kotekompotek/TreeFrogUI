@@ -12,11 +12,12 @@
 - **USB Composite FunctionFS MTP R/W + ADB Shell:** Simultaneous Windows Explorer MTP file read/write and `adb shell` over single HC16xx MUSB peripheral port (`0x18d1:0x4e22`), plus FAT32 `rw` recovery via `r36-fsck-cp437-v2`.
 - **Input Bridge:** `r36-direct-keys` (`event0`) + `r36-serial-keys` (`event1`) bridged through `r36-legacy-keys` to SysV SHM (`0x61110004`, `/tmp/joy_key`), with live UI button navigation confirmed in `v42`.
 
-### Latest Fixes Ready for Hardware Trial `v43` (Built & Emulated Offline)
-- **Game Launching Fixed (`scripts/peripheral_lab/r36_session_init.c`):** Expanded launch-request line buffers from 32 to 256 bytes (fixing truncated core paths), fixed `picoarch` / `picoarch_hi` `<CORE_PATH> <ROM_PATH>` invocation (`gpsp|pcsx|ps1|ppsspp -> picoarch_hi`, `.sh -> /bin/sh`), added `TF_DRIVER=` in `/tmp/tfdevice.env` + `PATH` + busybox applets + `/dev/shm` + `last_game.log`.
+### Latest Fixes Ready for Hardware Acceptance `v44` (Built & Emulated Offline)
+- **Game Launching, Standalone Compatibility & Auto-Repair (`scripts/peripheral_lab/r36_session_init.c`):** Expanded launch-request line buffers from 32 to 256 bytes, fixed `picoarch` / `picoarch_hi` `<CORE_PATH> <ROM_PATH>` invocation (`gpsp|pcsx|ps1|ppsspp -> picoarch_hi`, `.sh -> /bin/sh`), exported `TF_DRIVER=`, `PATH`, `SDL_VIDEODRIVER=dummy`, `SDL_AUDIODRIVER=dummy` (fixing `lgpt.elf`), added seamless `gpsp_multicore -> gpsp_libretro.so` fallback, and added automatic read-only FAT32 self-repair via RAM-staged `fsck.fat -a -w`.
+- **Combined Driver `v2` (`scripts/peripheral_lab/audio_alsa_backend.c`):** Added 0-arg `sound_driver_init()` fallback for `pico286` (`48 kHz` stereo when `device_name != NULL` and out-of-range registers) while preserving strict `NULL`-device checks (`driver_r36_combined_v2.so`, `28 KB`, `DRIVER_CHECK=PASS`).
 - **PWM Backlight & Direct Keys (`scripts/kernel_lab/r36-full.dts`, `scripts/peripheral_lab/r36_sysd.c`):** Added `pwm-backlight` (`&pwm 0 20000 0`, 20 levels, `l00`/`pwm0` pinctrl), enabled direct evdev key handling on `event0`, prevented positive brightness `%` from rounding to `raw=0`, and added `/tmp/r36-sysd.diag` + GPIO19 DIR auto-reassert.
-- **15-Button Physical Keymap (`v4`) & `r36-tfkey`:** Calibrated 15-button `/tmp/joy_key` map aligned with `sf3000_keys_to_buttons` (`0x42cfc8`) and built static MIPS32r2 `r36-tfkey` (`dump`).
-- **Kernel & Cold Image `v43`:** Built `7.2.0-rc5-r36full #43` with `/backlight` and `pins-bl` in `r36-lab.dtb`; passed Unicorn cold-boot emulation (`8/8` + `1/1` native fallback).
+- **Permanent Release Builder & Packager (`scripts/boot_crypto/build_release_cold_candidate.py`, `scripts/peripheral_lab/package_release_bundle.py`):** Added zero-watchdog, zero-SD-write permanent `advapi32.dll` builder (Unicorn 74Kf verified) and SHA256-verified release packager; see **[INSTALL.md](INSTALL.md)** / **[INSTALL.ru.md](INSTALL.ru.md)**.
+- **Kernel & Release Bundle `v44`:** Built `7.2.0-rc5-r36full #44` (`kernel_cold_full_session_v44` Unicorn `8/8` + `1/1` PASS; `kernel_release_full_session_v44` Unicorn PASS; bundled with `driver_r36_combined_v2.so` and 15-button keymap `v4`).
 
 ---
 
@@ -48,4 +49,4 @@ Full technical documentation of the 4-layer console emulation stack (Unicorn MIP
 python -m pytest scripts -q
 ```
 
-Latest verified result: **`313 passed, 14 skipped`**.
+Latest verified result: **`316 passed, 14 skipped`**.

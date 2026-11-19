@@ -1,6 +1,16 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
-## Текущий статус (offline prep + `v43` готов к hardware-trial)
+## Текущий статус (Блок 1 завершён офлайн; `v44` trial + permanent release и бандл готовы к hardware-приёмке)
+
+- **Правки Блока 1 и сборка `v44` (офлайн, без подключённой консоли):**
+  - [audio_alsa_backend.c](file:///d:/r36s-/scripts/peripheral_lab/audio_alsa_backend.c) + [test_audio_alsa_backend.py](file:///d:/r36s-/scripts/peripheral_lab/test_audio_alsa_backend.py): исправлен 0-аргументный вызов `sound_driver_init()` из `pico286` (фоллбэк на `48000 Hz` stereo при ненулевом `device_name` и мусорных регистрах, при сохранении строгой проверки для `device_name == NULL`); пересобран стрипнутый `analysis/driver_port/driver_r36_combined_v2.so` (`28 192` Б, `NEEDED: libc.so.6`, `GLIBC_2.0/2.2`, `DRIVER_CHECK=PASS` в `qemu-mipsel`).
+  - [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) + [test_r36_session_init.py](file:///d:/r36s-/scripts/peripheral_lab/test_r36_session_init.py): добавлены `SDL_VIDEODRIVER=dummy` и `SDL_AUDIODRIVER=dummy` (устраняет `SIGSEGV` `lgpt.elf` без `/dev/fb0`), авто-перенаправление `gpsp_multicore_libretro.so -> gpsp_libretro.so` и авто-ремонт грязной FAT32 (`EROFS` -> копирование `fsck.fat` в `/tmp` -> `umount` -> `fsck.fat -a -w` -> `mount`).
+  - [build_release_cold_candidate.py](file:///d:/r36s-/scripts/boot_crypto/build_release_cold_candidate.py) + [test_release_cold_candidate.py](file:///d:/r36s-/scripts/boot_crypto/test_release_cold_candidate.py): создан сборщик постоянного релизного `advapi32.dll` без 90с-watchdog и без записей на SD в NOR-фазе (`RELEASE_MAGIC=0x52454C31`), с верификацией в Unicorn MIPS32 74Kf (`wdt_ctrl_after=0`, `pc=kernel_entry`, `a0=0xfffffffe`, `a1=dtb`).
+  - [package_release_bundle.py](file:///d:/r36s-/scripts/peripheral_lab/package_release_bundle.py) + [test_package_release_bundle.py](file:///d:/r36s-/scripts/peripheral_lab/test_package_release_bundle.py) + [INSTALL.ru.md](file:///d:/r36s-/INSTALL.ru.md) + [INSTALL.md](file:///d:/r36s-/INSTALL.md): собран и проверен по SHA256 полный релизный бандл `payload/r36s_linux72_hc16e310_v44_bundle.zip` (`10 395 203` Б) на базе ядра `7.2.0-rc5-r36full #44` (`payload/kernel_full_session_v44`, `kernel_cold_full_session_v44` Unicorn `8/8` + `1/1` PASS, `kernel_release_full_session_v44` Unicorn PASS).
+  - Полный `pytest scripts`: **`316 passed, 14 skipped in 40.71s`**.
+  - Следующий шаг при подключении R36S: залить `cubegm/` из `payload/r36s_linux72_hc16e310_v44_bundle/` и прогнать hardware-приёмку `payload/kernel_cold_full_session_v44` (Блок 2: игры + звук + сохранения, все 18 кнопок, подсветка, батарея ADC, чистое `poweroff`/холодный старт, стресс-тест).
+
+## Предыдущий статус (`v41`–`v43` и аудит 10 501 игр)
 
 - **Аппаратные trial-ы `v41`–`v42` (`7.2.0-rc5-r36full #40`, до отключения консоли):**
   - Оба запуска завершились чистым возвратом в сток (`stock_restored=true`, `native_restore_verified=true`; см. `kernel_cold_full_session_v41_trial.json`, `kernel_cold_full_session_v42_trial.json`).

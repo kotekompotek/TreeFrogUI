@@ -145,12 +145,18 @@ int main(void) {{
     int16_t chunk480[480 * 2];
     for (int i = 0; i < 480 * 2; i++) chunk480[i] = (int16_t)(i - 400);
 
-    /* Reject invalid parameters or wrong ALSA card ID */
+    /* Reject invalid parameters or wrong ALSA card ID (strict when device_name == NULL) */
     assert(sound_driver_init(NULL, 0, 2) == -1);
     assert(sound_driver_init(NULL, 48000, 3) == -1);
     bad_card_id = 1;
     assert(sound_driver_init(NULL, 48000, 2) == -1);
     bad_card_id = 0;
+
+    /* pico286 calls sound_driver_init() with 0 args, leaving non-NULL $a0 and junk $a1/$a2 */
+    int pico286_dummy = 0;
+    assert(sound_driver_init(&pico286_dummy, 1, 1431844756) == 0);
+    assert(in_rate == R36_AUDIO_HW_RATE && in_channels == R36_AUDIO_HW_CHANNELS);
+    assert(sound_driver_deinit() == 0);
 
     /* Simulate picoarch's exact startup warm-up sequence (0x42ce80..0x42cfb8):
      * init(NULL, 48000, 2) -> deinit() -> init(NULL, 48000, 2) -> playframe(480) */

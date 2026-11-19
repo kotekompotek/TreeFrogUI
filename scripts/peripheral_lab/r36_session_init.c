@@ -154,6 +154,9 @@ static int r36_write_tfdevice_env(const struct r36_session_cfg *c)
     }
     setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin:/mnt/sdcard/cubegm", 1);
     setenv("LD_LIBRARY_PATH", "/mnt/sdcard/cubegm/lib:/mnt/sdcard/cubegm/usr/lib", 1);
+    /* Prevent SDL 1.2 apps (e.g. lgpt.elf, rockbox) from segfaulting on missing /dev/fb0 */
+    setenv("SDL_VIDEODRIVER", "dummy", 1);
+    setenv("SDL_AUDIODRIVER", "dummy", 1);
     return 0;
 }
 
@@ -324,6 +327,77 @@ static void r36_write_proof_and_log(int drm_rc, int i2s_rc, int swap_rc,
 #endif
 }
 
+#ifndef R36_SESSION_MOCK
+static int r36_copy_exec_file(const char *src, const char *dst)
+{
+    char buf[8192];
+    int in_fd, out_fd;
+    ssize_t n;
+
+    in_fd = open(src, O_RDONLY | O_CLOEXEC);
+    if (in_fd < 0)
+        return -1;
+    out_fd = open(dst, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0755);
+    if (out_fd < 0) {
+        close(in_fd);
+        return -1;
+    }
+    while ((n = read(in_fd, buf, sizeof(buf))) > 0) {
+        ssize_t off = 0;
+        while (off < n) {
+            ssize_t w = write(out_fd, buf + off, (size_t)(n - off));
+            if (w <= 0) {
+                close(in_fd);
+                close(out_fd);
+                (void)unlink(dst);
+                return -1;
+            }
+            off += w;
+        }
+    }
+    close(in_fd);
+    close(out_fd);
+    if (n < 0) {
+        (void)unlink(dst);
+        return -1;
+    }
+    (void)chmod(dst, 0755);
+    return 0;
+}
+
+static void r36_repair_ro_sd_if_needed(struct r36_session_ctx *ctx)
+{
+    char probe_path[256];
+    int fd;
+
+    if (!ctx || !ctx->sd_mounted || !ctx->cfg.sd_mount || !ctx->cfg.sd_dev)
+        return;
+    snprintf(probe_path, sizeof(probe_path), "%s/.r36_rw_probe", ctx->cfg.sd_mount);
+    fd = open(probe_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd >= 0) {
+        close(fd);
+        (void)unlink(probe_path);
+        return;
+    }
+    if (errno != EROFS)
+        return;
+    if (access("/mnt/sdcard/cubegm/fsck.fat", F_OK) != 0)
+        return;
+    if (r36_copy_exec_file("/mnt/sdcard/cubegm/fsck.fat", "/tmp/r36-fsck.fat") != 0)
+        return;
+    sync();
+    if (umount(ctx->cfg.sd_mount) == 0) {
+        ctx->sd_mounted = 0;
+        const char *const fsck_argv[] = { "/tmp/r36-fsck.fat", "-a", "-w", ctx->cfg.sd_dev, NULL };
+        (void)r36_run_sync_cmd(fsck_argv);
+        sync();
+        if (mount(ctx->cfg.sd_dev, ctx->cfg.sd_mount, "vfat", 0, "utf8") == 0)
+            ctx->sd_mounted = 1;
+    }
+    (void)unlink("/tmp/r36-fsck.fat");
+}
+#endif
+
 static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_session_cfg *custom)
 {
     int attempt;
@@ -356,6 +430,11 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
     if (mount(ctx->cfg.sd_dev, ctx->cfg.sd_mount, "vfat", 0, "utf8") != 0)
         return -3;
     ctx->sd_mounted = 1;
+#ifndef R36_SESSION_MOCK
+    r36_repair_ro_sd_if_needed(ctx);
+    if (!ctx->sd_mounted)
+        return -3;
+#endif
 
 #ifndef R36_SESSION_MOCK
     if (access("/lib/ld.so.1", F_OK) != 0 &&
@@ -526,6 +605,11 @@ static int r36_session_step(struct r36_session_ctx *ctx)
             const char *core = (strcmp(line1, "libretro") == 0) ? line2 : line1;
             const char *rom = (strcmp(line1, "libretro") == 0) ? line3 : line2;
             const char *bin = ctx->cfg.picoarch_bin;
+            /* gpsp_multicore_libretro.so fails dlopen on console glibc (missing __cmpdi2);
+             * fall back seamlessly to verified gpsp_libretro.so when present. */
+            if (r36_ends_with(core, "gpsp_multicore_libretro.so") &&
+                access("/mnt/sdcard/cubegm/cores/gpsp_libretro.so", F_OK) == 0)
+                core = "/mnt/sdcard/cubegm/cores/gpsp_libretro.so";
             if (r36_use_picoarch_hi(core) && ctx->cfg.picoarch_hi_bin &&
                 access(ctx->cfg.picoarch_hi_bin, F_OK) == 0)
                 bin = ctx->cfg.picoarch_hi_bin;

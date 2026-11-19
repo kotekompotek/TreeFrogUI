@@ -1,5 +1,13 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
+## Статус full-session (`v41`–`v44`), релизный пайплайн (Блок 1) и аудит эмуляторов
+
+- **Блок 1 (офлайн, готовность к релизу `v44`):**
+  - Исправлены `pico286` (`audio_alsa_backend.c` -> `driver_r36_combined_v2.so`, `28 192` Б, `DRIVER_CHECK=PASS`), `lgpt.elf` (`SDL_VIDEODRIVER/AUDIODRIVER=dummy`), `gpsp_multicore -> gpsp` авто-фоллбэк и авто-ремонт грязной FAT32 (`EROFS` -> `fsck.fat -a -w`) в `r36_session_init.c`.
+  - Добавлен сборщик постоянного (non-watchdog, zero-SD-write) релизного `advapi32.dll` (`build_release_cold_candidate.py`) и упаковщик релизного архива (`package_release_bundle.py`, `INSTALL.ru.md`, `INSTALL.md`).
+  - Собрано ядро `7.2.0-rc5-r36full #44` (`payload/kernel_full_session_v44`), пробный `kernel_cold_full_session_v44` (Unicorn `8/8` + `1/1` PASS), постоянный `kernel_release_full_session_v44` (Unicorn PASS) и полный архив `payload/r36s_linux72_hc16e310_v44_bundle.zip` (`10 395 203` Б).
+  - Полный `pytest`: **`316 passed, 14 skipped in 40.71s`**. Hardware-приёмка `v44` (Блок 2) — следующий шаг при подключении консоли.
+
 ## Статус full-session (`v41`–`v43`) и офлайн-аудит эмуляторов (`emulators_offline_v1`)
 
 - **Аппаратные trial-ы `v41`–`v42`:** `kernel_cold_full_session_v41_trial.json` и `v42_trial.json` подтвердили запуск UI/ввода и чистый возврат в сток (`7.2.0-rc5-r36full #40`), но выявили сбой запуска игр (обрезка `CORE_PATH` и потеря аргумента ядра в `r36_session_init.c`), пустой `/sys/class/backlight/` и отсутствие чтения direct-ключей с `event0` в `r36-sysd`.

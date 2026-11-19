@@ -166,7 +166,17 @@ int sound_driver_init(void *device_name, int sample_rate, int channels)
 {
     const char *path = "/dev/snd/pcmC0D0p";
     int fd;
-    (void)device_name;
+
+    /* Some standalone emulators (e.g. pico286 at 0x401f50) invoke
+     * sound_driver_init() with 0 arguments, leaving a non-NULL caller pointer
+     * in $a0 and uninitialized register values in $a1/$a2. When device_name is
+     * non-NULL and rate/channels are out of range, fall back to native 48 kHz
+     * stereo; keep strict validation when device_name == NULL. */
+    if (device_name != NULL &&
+        (sample_rate < 8000 || sample_rate > 192000 || (channels != 1 && channels != 2))) {
+        sample_rate = (int)R36_AUDIO_HW_RATE;
+        channels = (int)R36_AUDIO_HW_CHANNELS;
+    }
 
     if (sample_rate < 8000 || sample_rate > 192000 || (channels != 1 && channels != 2))
         return -1;
