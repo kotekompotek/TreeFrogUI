@@ -1,8 +1,18 @@
 # Передача работы: собственный Linux для HC16E310 / SF3000-клона
 
-## Текущий статус (Блок 1 завершён офлайн; `v44` trial + permanent release и бандл готовы к hardware-приёмке)
+## Текущий статус (всё офлайн до консоли завершено; `v45` trial + permanent release + установщик готовы к hardware-приёмке)
 
-- **Правки Блока 1 и сборка `v44` (офлайн, без подключённой консоли):**
+- **Финальные офлайн-доработки `v45` (до подключения R36S):**
+  - [r36_power_settings.c](file:///d:/r36s-/scripts/peripheral_lab/r36_power_settings.c) + [test_r36_power_settings.py](file:///d:/r36s-/scripts/peripheral_lab/test_r36_power_settings.py): интерактивный редактор таймеров сна/автовыключения/яркости переведён с `/dev/fb0` на DRM dumb-buffer (`/dev/dri/card0`, с fallback на `/dev/fb0`) и поддержаны физические коды кнопок R36S (`704..715`); проверена статическая MIPS32r2 сборка с DRM-заголовками.
+  - [install_to_sd.py](file:///d:/r36s-/scripts/peripheral_lab/install_to_sd.py) + [test_install_to_sd.py](file:///d:/r36s-/scripts/peripheral_lab/test_install_to_sd.py): безопасный 1-командный ПК-установщик (`--mode trial|permanent|rollback`) с жёсткой проверкой `MD5` стокового `advapi32.dll`, двойным бэкапом, проверкой SHA256 и ко-локацией `neogeo.zip`/`pgm.zip` в `MAME`.
+  - [r36-hw-diag.sh](file:///d:/r36s-/scripts/peripheral_lab/r36-hw-diag.sh): 1-секундный скрипт диагностики для живой приёмки (`adb shell sh /mnt/sdcard/cubegm/r36-hw-diag.sh`, укладывается в 200-байтный лимит `r36-usb-mtp-adb`).
+  - [test_r36_session_init.py](file:///d:/r36s-/scripts/peripheral_lab/test_r36_session_init.py): добавлен unit-тест сценария `EROFS -> umount -> /tmp/r36-fsck.fat -a -w -> remount rw`.
+  - Аудит 239 незапустившихся `.zip` в `MAME`: выборочная проверка (`1944ad.zip`, `actfancr1.zip`, `aliensu.zip`, `avspa.zip`, `bgareggaz.zip`, `19xx.zip`) подтвердила, что это неполные split-клоны с отсутствующими родителями (на стоковой карте вместо родительских `.zip` лежат проприетарные `.fba`) либо CPS2 без `qsound.zip`, а не дефект порта.
+  - Пересобраны `payload/session_initramfs_v5`, ядро `7.2.0-rc5-r36full #45` (`payload/kernel_full_session_v45`, `data_bytes=3 729 304`), `kernel_cold_full_session_v45` (Unicorn `8/8` + `1/1` PASS), `kernel_release_full_session_v45` (Unicorn PASS) и полный релизный архив `payload/r36s_linux72_hc16e310_v45_bundle.zip`.
+  - Полный `pytest scripts`: **`318 passed, 14 skipped in 29.44s`**.
+  - Следующий шаг при подключении R36S: залить `v45` через `install_to_sd.py --mode trial` и выполнить живую приёмку (Блок 2).
+
+## Правки Блока 1 и сборка `v44`
   - [audio_alsa_backend.c](file:///d:/r36s-/scripts/peripheral_lab/audio_alsa_backend.c) + [test_audio_alsa_backend.py](file:///d:/r36s-/scripts/peripheral_lab/test_audio_alsa_backend.py): исправлен 0-аргументный вызов `sound_driver_init()` из `pico286` (фоллбэк на `48000 Hz` stereo при ненулевом `device_name` и мусорных регистрах, при сохранении строгой проверки для `device_name == NULL`); пересобран стрипнутый `analysis/driver_port/driver_r36_combined_v2.so` (`28 192` Б, `NEEDED: libc.so.6`, `GLIBC_2.0/2.2`, `DRIVER_CHECK=PASS` в `qemu-mipsel`).
   - [r36_session_init.c](file:///d:/r36s-/scripts/peripheral_lab/r36_session_init.c) + [test_r36_session_init.py](file:///d:/r36s-/scripts/peripheral_lab/test_r36_session_init.py): добавлены `SDL_VIDEODRIVER=dummy` и `SDL_AUDIODRIVER=dummy` (устраняет `SIGSEGV` `lgpt.elf` без `/dev/fb0`), авто-перенаправление `gpsp_multicore_libretro.so -> gpsp_libretro.so` и авто-ремонт грязной FAT32 (`EROFS` -> копирование `fsck.fat` в `/tmp` -> `umount` -> `fsck.fat -a -w` -> `mount`).
   - [build_release_cold_candidate.py](file:///d:/r36s-/scripts/boot_crypto/build_release_cold_candidate.py) + [test_release_cold_candidate.py](file:///d:/r36s-/scripts/boot_crypto/test_release_cold_candidate.py): создан сборщик постоянного релизного `advapi32.dll` без 90с-watchdog и без записей на SD в NOR-фазе (`RELEASE_MAGIC=0x52454C31`), с верификацией в Unicorn MIPS32 74Kf (`wdt_ctrl_after=0`, `pc=kernel_entry`, `a0=0xfffffffe`, `a1=dtb`).

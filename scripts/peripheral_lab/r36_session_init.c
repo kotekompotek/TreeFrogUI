@@ -364,6 +364,14 @@ static int r36_copy_exec_file(const char *src, const char *dst)
     (void)chmod(dst, 0755);
     return 0;
 }
+#else
+static int r36_copy_exec_file(const char *src, const char *dst)
+{
+    (void)src;
+    (void)dst;
+    return 0;
+}
+#endif
 
 static void r36_repair_ro_sd_if_needed(struct r36_session_ctx *ctx)
 {
@@ -396,7 +404,6 @@ static void r36_repair_ro_sd_if_needed(struct r36_session_ctx *ctx)
     }
     (void)unlink("/tmp/r36-fsck.fat");
 }
-#endif
 
 static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_session_cfg *custom)
 {
@@ -430,11 +437,9 @@ static int r36_session_bootstrap(struct r36_session_ctx *ctx, const struct r36_s
     if (mount(ctx->cfg.sd_dev, ctx->cfg.sd_mount, "vfat", 0, "utf8") != 0)
         return -3;
     ctx->sd_mounted = 1;
-#ifndef R36_SESSION_MOCK
     r36_repair_ro_sd_if_needed(ctx);
     if (!ctx->sd_mounted)
         return -3;
-#endif
 
 #ifndef R36_SESSION_MOCK
     if (access("/lib/ld.so.1", F_OK) != 0 &&

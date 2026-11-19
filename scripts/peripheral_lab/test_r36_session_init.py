@@ -27,7 +27,15 @@ def test_r36_session_init_bootstrap_launch_and_shutdown(tmp_path):
 #include <string.h>
 #include <unistd.h>
 
-static int host_open(const char *p, int flags, ...) {{ (void)flags; return open(p, flags); }}
+static int mock_inject_erofs = 0;
+static int host_open(const char *p, int flags, ...) {{
+    if (mock_inject_erofs && strstr(p, ".r36_rw_probe") != NULL) {{
+        errno = EROFS;
+        return -1;
+    }}
+    (void)flags;
+    return open(p, flags);
+}}
 static int host_close(int fd) {{ return close(fd); }}
 static ssize_t host_write(int fd, const void *buf, size_t count) {{ return write(fd, buf, count); }}
 static int host_unlink(const char *p) {{ return unlink(p); }}
@@ -57,6 +65,7 @@ static int mock_access(const char *p, int mode) {{
     if (!strcmp(p, "/sbin/r36-usb-mtp-adb")) return 0;
     if (!strcmp(p, "/mnt/sdcard/cubegm/picoarch_hi")) return 0;
     if (!strcmp(p, "/mnt/sdcard/cubegm/cores/gpsp_libretro.so")) return 0;
+    if (!strcmp(p, "/mnt/sdcard/cubegm/fsck.fat")) return 0;
     if (!strcmp(p, "{drv.as_posix()}")) return 0;
     if (!strcmp(p, "{pwr_flag.as_posix()}")) return access(p, mode);
     return -1;
@@ -200,14 +209,26 @@ int main(void) {{
     assert(strcmp(spawned_cmds[idx_before],
                   "/bin/sh|/mnt/sdcard/cubegm/dsperate/run_sf3000.sh|/mnt/sdcard/roms/NDS/game.nds") == 0);
 
-    /* 5. Poweroff request cleanly stops all children, swapoff, umount, RB_POWER_OFF */
+    /* 5. EROFS on mounted SD triggers umount -> /tmp/r36-fsck.fat -a -w -> remount rw */
+    int umount_before = mock_umount_calls;
+    int mount_before = mock_mount_calls;
+    idx_before = spawned_count;
+    mock_inject_erofs = 1;
+    r36_repair_ro_sd_if_needed(&ctx);
+    mock_inject_erofs = 0;
+    assert(mock_umount_calls == umount_before + 1);
+    assert(mock_mount_calls == mount_before + 1);
+    assert(ctx.sd_mounted == 1);
+    assert(strcmp(spawned_cmds[idx_before], "/tmp/r36-fsck.fat|-a|-w") == 0);
+
+    /* 6. Poweroff request cleanly stops all children, swapoff, umount, RB_POWER_OFF */
     FILE *pf = fopen("{pwr_flag.as_posix()}", "w");
     assert(pf != NULL);
     fputs("1\\n", pf);
     fclose(pf);
     assert(r36_session_step(&ctx) == 1 && ctx.shutdown_requested == 1);
     assert(r36_session_shutdown(&ctx) == 0);
-    assert(mock_swapoff_calls == 1 && mock_umount_calls == 1 && mock_reboot_calls == 1);
+    assert(mock_swapoff_calls == 1 && mock_umount_calls == 2 && mock_reboot_calls == 1);
     assert(ctx.sd_mounted == 0 && ctx.sysd_pid == 0 && ctx.keys_pid == 0 && ctx.usb_pid == 0 && ctx.ui_pid == 0);
 
     puts("R36_SESSION_INIT=PASS");

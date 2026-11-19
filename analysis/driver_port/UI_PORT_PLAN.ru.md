@@ -1,6 +1,11 @@
 # Перенос TreeFrogUI и периферии на Linux 7
 
-## Статус full-session (`v41`–`v44`), релизный пайплайн (Блок 1) и аудит эмуляторов
+## Статус full-session (`v41`–`v45`), релизный пайплайн и аудит эмуляторов
+
+- **Финал офлайн-подготовки `v45`:**
+  - `r36_power_settings.c` переведён на DRM `/dev/dri/card0` (+ fallback `/dev/fb0`) и физические коды R36S `704..715` (`test_r36_power_settings.py` PASS); добавлены безопасный SD-установщик `install_to_sd.py` (`test_install_to_sd.py` PASS), скрипт живой диагностики `r36-hw-diag.sh` и unit-тест `EROFS -> fsck.fat` в `test_r36_session_init.py`.
+  - Собрано и проверено ядро `7.2.0-rc5-r36full #45` (`payload/kernel_full_session_v45`, `kernel_cold_full_session_v45` Unicorn `8/8` + `1/1`, `kernel_release_full_session_v45` Unicorn PASS, `payload/r36s_linux72_hc16e310_v45_bundle.zip`).
+  - Полный `pytest`: **`318 passed, 14 skipped in 29.44s`**. Следующий шаг — живая приёмка `v45` на R36S (Блок 2).
 
 - **Блок 1 (офлайн, готовность к релизу `v44`):**
   - Исправлены `pico286` (`audio_alsa_backend.c` -> `driver_r36_combined_v2.so`, `28 192` Б, `DRIVER_CHECK=PASS`), `lgpt.elf` (`SDL_VIDEODRIVER/AUDIODRIVER=dummy`), `gpsp_multicore -> gpsp` авто-фоллбэк и авто-ремонт грязной FAT32 (`EROFS` -> `fsck.fat -a -w`) в `r36_session_init.c`.

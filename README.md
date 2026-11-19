@@ -16,8 +16,9 @@
 - **Game Launching, Standalone Compatibility & Auto-Repair (`scripts/peripheral_lab/r36_session_init.c`):** Expanded launch-request line buffers from 32 to 256 bytes, fixed `picoarch` / `picoarch_hi` `<CORE_PATH> <ROM_PATH>` invocation (`gpsp|pcsx|ps1|ppsspp -> picoarch_hi`, `.sh -> /bin/sh`), exported `TF_DRIVER=`, `PATH`, `SDL_VIDEODRIVER=dummy`, `SDL_AUDIODRIVER=dummy` (fixing `lgpt.elf`), added seamless `gpsp_multicore -> gpsp_libretro.so` fallback, and added automatic read-only FAT32 self-repair via RAM-staged `fsck.fat -a -w`.
 - **Combined Driver `v2` (`scripts/peripheral_lab/audio_alsa_backend.c`):** Added 0-arg `sound_driver_init()` fallback for `pico286` (`48 kHz` stereo when `device_name != NULL` and out-of-range registers) while preserving strict `NULL`-device checks (`driver_r36_combined_v2.so`, `28 KB`, `DRIVER_CHECK=PASS`).
 - **PWM Backlight & Direct Keys (`scripts/kernel_lab/r36-full.dts`, `scripts/peripheral_lab/r36_sysd.c`):** Added `pwm-backlight` (`&pwm 0 20000 0`, 20 levels, `l00`/`pwm0` pinctrl), enabled direct evdev key handling on `event0`, prevented positive brightness `%` from rounding to `raw=0`, and added `/tmp/r36-sysd.diag` + GPIO19 DIR auto-reassert.
-- **Permanent Release Builder & Packager (`scripts/boot_crypto/build_release_cold_candidate.py`, `scripts/peripheral_lab/package_release_bundle.py`):** Added zero-watchdog, zero-SD-write permanent `advapi32.dll` builder (Unicorn 74Kf verified) and SHA256-verified release packager; see **[INSTALL.md](INSTALL.md)** / **[INSTALL.ru.md](INSTALL.ru.md)**.
-- **Kernel & Release Bundle `v44`:** Built `7.2.0-rc5-r36full #44` (`kernel_cold_full_session_v44` Unicorn `8/8` + `1/1` PASS; `kernel_release_full_session_v44` Unicorn PASS; bundled with `driver_r36_combined_v2.so` and 15-button keymap `v4`).
+- **Permanent Release Builder, Packager & Safe SD Installer (`scripts/boot_crypto/build_release_cold_candidate.py`, `scripts/peripheral_lab/package_release_bundle.py`, `install_to_sd.py`, `r36-hw-diag.sh`):** Zero-watchdog, zero-SD-write permanent `advapi32.dll` builder (Unicorn 74Kf verified), SHA256-verified release packager, one-command HC16E310-guarded SD installer (`--mode trial|permanent|rollback`), and 1-second ADB live-acceptance diagnostic script; see **[INSTALL.md](INSTALL.md)** / **[INSTALL.ru.md](INSTALL.ru.md)**.
+- **DRM Power Settings UI (`scripts/peripheral_lab/r36_power_settings.c`):** Ported from `/dev/fb0` to `/dev/dri/card0` DRM dumb buffer (with `/dev/fb0` fallback) and R36S physical keycodes (`704..715`).
+- **Kernel & Release Bundle `v45`:** Built `7.2.0-rc5-r36full #45` (`kernel_cold_full_session_v45` Unicorn `8/8` + `1/1` PASS; `kernel_release_full_session_v45` Unicorn PASS; bundled with `driver_r36_combined_v2.so`, `r36-power-settings`, `r36-hw-diag.sh`, `install_to_sd.py`, and 15-button keymap `v4`).
 
 ---
 
@@ -49,4 +50,4 @@ Full technical documentation of the 4-layer console emulation stack (Unicorn MIP
 python -m pytest scripts -q
 ```
 
-Latest verified result: **`316 passed, 14 skipped`**.
+Latest verified result: **`318 passed, 14 skipped`**.

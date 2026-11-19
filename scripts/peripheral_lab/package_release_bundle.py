@@ -119,6 +119,19 @@ def package_release(
     assert file_hashes["boot_images/trial_watchdog90/advapi32.dll"]["sha256"] == t_man["sha256"]
     assert file_hashes["boot_images/permanent_release/advapi32.dll"]["sha256"] == r_man["sha256"]
 
+    # Copy optional console helpers (power settings, hw diag script, PC installer) if present
+    opt_files = {
+        "cubegm/r36-power-settings": bins / "r36-power-settings",
+        "cubegm/r36-hw-diag.sh": ROOT / "scripts/peripheral_lab/r36-hw-diag.sh",
+        "install_to_sd.py": ROOT / "scripts/peripheral_lab/install_to_sd.py",
+    }
+    for rel, opt_src in opt_files.items():
+        if opt_src.is_file():
+            dst = out_dir / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(opt_src, dst)
+            file_hashes[rel] = {"bytes": dst.stat().st_size, "sha256": sha256_file(dst)}
+
     # Copy user-facing docs if present in repo
     for doc_name in ("INSTALL.md", "INSTALL.ru.md", "CONSOLE_EMULATOR.md"):
         doc_src = ROOT / doc_name

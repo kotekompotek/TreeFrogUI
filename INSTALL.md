@@ -7,7 +7,24 @@
 
 ---
 
-## 1. Mandatory Verification & Backup
+## 1. Safe One-Command Install (Recommended)
+
+The release archive includes `install_to_sd.py`, which **verifies stock `advapi32.dll` MD5** (`3510ffdfd039f850345ace1489572659`, refusing incompatible boards), creates dual backups, installs `cubegm/` + co-locates `neogeo.zip`/`pgm.zip`, and verifies SHA256 readback of every file:
+
+```bash
+# Stage A — safe 90-second auto-restoring trial:
+python install_to_sd.py --sd E:\ --bundle r36s_linux72_hc16e310_v45_bundle.zip --mode trial --pc-backup C:\r36s_backup
+
+# Stage B — permanent install (only after Stage A passes):
+python install_to_sd.py --sd E:\ --bundle r36s_linux72_hc16e310_v45_bundle.zip --mode permanent
+
+# Instant rollback to stock firmware:
+python install_to_sd.py --sd E:\ --mode rollback
+```
+
+---
+
+## 2. Manual Verification & Backup (Alternative)
 
 1. Power off the handheld and insert the microSD card into a PC card reader.
 2. Locate `cubegm/advapi32.dll` on the SD card and verify its MD5 matches `3510ffdfd039f850345ace1489572659`.
