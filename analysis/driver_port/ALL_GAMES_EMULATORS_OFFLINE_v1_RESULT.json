@@ -1,0 +1,877 @@
+{
+  "trial_id": "all_games_emulators_offline_v1",
+  "scope": "Exhaustive offline MIPS32 execution of all 10,501 ROM files from backup/r36s_sd_16gb.img (FAT32 @ offset 16384) under qemu-mipsel -cpu 74Kf with real console /cubegm/lib/ld.so.1, console glibc 2.19 libs, and real /cubegm/cores/*_libretro.so cores. Hardware not connected.",
+  "totals": {
+    "console_and_handheld_folders": 14,
+    "console_and_handheld_total_games": 7361,
+    "console_and_handheld_passed": 7361,
+    "console_and_handheld_pass_rate_pct": 100.0,
+    "arcade_mame_total_files": 3140,
+    "arcade_mame_verified_rendered": 2511,
+    "arcade_mame_qemu_sigbus_unaligned": 335,
+    "arcade_mame_proprietary_fba": 55,
+    "arcade_mame_unresolved_zip": 239,
+    "grand_total_files": 10501,
+    "grand_total_verified_rendered": 9872,
+    "grand_total_pass_rate_pct": 94.01,
+    "grand_total_excluding_qemu_sigbus_and_legacy_fba": 10111
+  },
+  "console_primary_failed_rescued_by_alternate": [
+    {
+      "folder": "MD",
+      "name": "tribe.bin",
+      "primary_core": "picodrive_libretro.so",
+      "primary_error": "FAIL|crash_sig=11|ms=191",
+      "rescued_by": "genesis_plus_gx_libretro.so"
+    }
+  ],
+  "tier_a_picoarch_frontend_smoke": {
+    "total_combinations": 28,
+    "passed": 22,
+    "qemu_sigbus_unaligned": 4,
+    "other_failed": 2,
+    "results": [
+      {
+        "frontend": "picoarch",
+        "core": "stella2014_libretro.so",
+        "sample_rom": "atari.a26",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "fceumm_libretro.so",
+        "sample_rom": "fc.nes",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "quicknes_libretro.so",
+        "sample_rom": "fc.nes",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "nestopia_libretro.so",
+        "sample_rom": "fc.nes",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "gambatte_libretro.so",
+        "sample_rom": "gb.gb",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "gearboy_libretro.so",
+        "sample_rom": "gb.gb",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "tgbdual_libretro.so",
+        "sample_rom": "gb.gb",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "gambatte_libretro.so",
+        "sample_rom": "gbc.gbc",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch_hi",
+        "core": "gpsp_libretro.so",
+        "sample_rom": "gba.gba",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "vba_next_libretro.so",
+        "sample_rom": "gba.gba",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "mgba_libretro.so",
+        "sample_rom": "gba.gba",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "gearsystem_libretro.so",
+        "sample_rom": "gg.gg",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "picodrive_libretro.so",
+        "sample_rom": "md.bin",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "genesis_plus_gx_libretro.so",
+        "sample_rom": "md.bin",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "gearsystem_libretro.so",
+        "sample_rom": "sms.sms",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "race_libretro.so",
+        "sample_rom": "ngp.ngp",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "mednafen_pce_fast_libretro.so",
+        "sample_rom": "pce.pce",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "mednafen_supergrafx_libretro.so",
+        "sample_rom": "pce.pce",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "mednafen_wswan_libretro.so",
+        "sample_rom": "wsc.wsc",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "snes9x2005_plus_libretro.so",
+        "sample_rom": "sfc.sfc",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "snes9x2002_libretro.so",
+        "sample_rom": "sfc.sfc",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=0 audio_frames=0"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "snes9x2010_libretro.so",
+        "sample_rom": "sfc.sfc",
+        "rc": 135,
+        "status": "QEMU_SIGBUS_UNALIGNED",
+        "note": ""
+      },
+      {
+        "frontend": "picoarch",
+        "core": "snes9x-Z_libretro.so",
+        "sample_rom": "sfc.sfc",
+        "rc": 135,
+        "status": "QEMU_SIGBUS_UNALIGNED",
+        "note": ""
+      },
+      {
+        "frontend": "picoarch_hi",
+        "core": "pcsx_rearmed_libretro.so",
+        "sample_rom": "ps.pbp",
+        "rc": 0,
+        "status": "PASS",
+        "note": "[mock_driver] MOCK_EXIT_AFTER_FRAMES=2 audio_calls=497 audio_frames=238560"
+      },
+      {
+        "frontend": "picoarch",
+        "core": "fbneo_libretro.so",
+        "sample_rom": "1941.zip",
+        "rc": 135,
+        "status": "QEMU_SIGBUS_UNALIGNED",
+        "note": ""
+      },
+      {
+        "frontend": "picoarch",
+        "core": "mame2003_plus_libretro.so",
+        "sample_rom": "1941.zip",
+        "rc": 255,
+        "status": "FAIL_RC_255",
+        "note": ""
+      },
+      {
+        "frontend": "picoarch",
+        "core": "mame2000_libretro.so",
+        "sample_rom": "1941.zip",
+        "rc": 255,
+        "status": "FAIL_RC_255",
+        "note": ""
+      },
+      {
+        "frontend": "picoarch",
+        "core": "fbalpha2012_cps1_libretro.so",
+        "sample_rom": "1941.zip",
+        "rc": 135,
+        "status": "QEMU_SIGBUS_UNALIGNED",
+        "note": ""
+      }
+    ]
+  },
+  "systems": {
+    "ATARI": {
+      "total_games": 9,
+      "passed_any_core": 9,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "stella2014_libretro.so": {
+          "tested": 9,
+          "passed": 9,
+          "failed": 0,
+          "top_resolutions": {
+            "160x210": 5,
+            "160x250": 3,
+            "160x230": 1
+          },
+          "failures": []
+        }
+      }
+    },
+    "ROMS": {
+      "total_games": 2,
+      "passed_any_core": 2,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "fceumm_libretro.so": {
+          "tested": 2,
+          "passed": 2,
+          "failed": 0,
+          "top_resolutions": {
+            "256x240": 2
+          },
+          "failures": []
+        }
+      }
+    },
+    "NGPC": {
+      "total_games": 39,
+      "passed_any_core": 39,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "race_libretro.so": {
+          "tested": 39,
+          "passed": 39,
+          "failed": 0,
+          "top_resolutions": {
+            "160x152": 39
+          },
+          "failures": []
+        }
+      }
+    },
+    "WSC": {
+      "total_games": 63,
+      "passed_any_core": 63,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "mednafen_wswan_libretro.so": {
+          "tested": 63,
+          "passed": 63,
+          "failed": 0,
+          "top_resolutions": {
+            "224x144": 63
+          },
+          "failures": []
+        }
+      }
+    },
+    "GG": {
+      "total_games": 91,
+      "passed_any_core": 91,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "gearsystem_libretro.so": {
+          "tested": 91,
+          "passed": 91,
+          "failed": 0,
+          "top_resolutions": {
+            "160x144": 91
+          },
+          "failures": []
+        }
+      }
+    },
+    "SMS": {
+      "total_games": 93,
+      "passed_any_core": 93,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "gearsystem_libretro.so": {
+          "tested": 93,
+          "passed": 93,
+          "failed": 0,
+          "top_resolutions": {
+            "256x192": 93
+          },
+          "failures": []
+        }
+      }
+    },
+    "GBC": {
+      "total_games": 149,
+      "passed_any_core": 149,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "gambatte_libretro.so": {
+          "tested": 149,
+          "passed": 149,
+          "failed": 0,
+          "top_resolutions": {
+            "160x144": 149
+          },
+          "failures": []
+        }
+      }
+    },
+    "GB": {
+      "total_games": 192,
+      "passed_any_core": 192,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "gambatte_libretro.so": {
+          "tested": 192,
+          "passed": 192,
+          "failed": 0,
+          "top_resolutions": {
+            "160x144": 192
+          },
+          "failures": []
+        }
+      }
+    },
+    "MD": {
+      "total_games": 342,
+      "passed_any_core": 342,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "picodrive_libretro.so": {
+          "tested": 342,
+          "passed": 341,
+          "failed": 1,
+          "top_resolutions": {
+            "320x224": 333,
+            "256x224": 5,
+            "248x192": 3
+          },
+          "failures": [
+            {
+              "idx": 297,
+              "name": "tribe.bin",
+              "status": "FAIL|crash_sig=11|ms=191"
+            }
+          ]
+        },
+        "genesis_plus_gx_libretro.so": {
+          "tested": 1,
+          "passed": 1,
+          "failed": 0,
+          "top_resolutions": {
+            "256x192": 1
+          },
+          "failures": []
+        }
+      }
+    },
+    "PCE": {
+      "total_games": 377,
+      "passed_any_core": 377,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "mednafen_pce_fast_libretro.so": {
+          "tested": 377,
+          "passed": 377,
+          "failed": 0,
+          "top_resolutions": {
+            "256x243": 353,
+            "352x243": 24
+          },
+          "failures": []
+        }
+      }
+    },
+    "GBA": {
+      "total_games": 942,
+      "passed_any_core": 942,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "gpsp_libretro.so": {
+          "tested": 942,
+          "passed": 942,
+          "failed": 0,
+          "top_resolutions": {
+            "240x160": 942
+          },
+          "failures": []
+        }
+      }
+    },
+    "SFC": {
+      "total_games": 2145,
+      "passed_any_core": 2145,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "snes9x2005_plus_libretro.so": {
+          "tested": 2145,
+          "passed": 2145,
+          "failed": 0,
+          "top_resolutions": {
+            "256x224": 2099,
+            "256x239": 35,
+            "512x224": 7,
+            "512x448": 3,
+            "512x239": 1
+          },
+          "failures": []
+        }
+      }
+    },
+    "FC": {
+      "total_games": 2907,
+      "passed_any_core": 2907,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "fceumm_libretro.so": {
+          "tested": 2907,
+          "passed": 2907,
+          "failed": 0,
+          "top_resolutions": {
+            "256x240": 2907
+          },
+          "failures": []
+        }
+      }
+    },
+    "PS": {
+      "total_games": 10,
+      "passed_any_core": 10,
+      "failed_all_cores": 0,
+      "pass_rate_pct": 100.0,
+      "cores": {
+        "pcsx_rearmed_libretro.so": {
+          "tested": 10,
+          "passed": 10,
+          "failed": 0,
+          "top_resolutions": {
+            "256x240": 5,
+            "640x480": 5
+          },
+          "failures": []
+        }
+      }
+    },
+    "MAME": {
+      "total_games": 3140,
+      "passed_any_core": 2511,
+      "failed_or_blocked_total": 629,
+      "pass_rate_pct": 79.97,
+      "passed_by_core": {
+        "fbneo_libretro.so": 2096,
+        "mame2003_plus_libretro.so": 290,
+        "fbalpha2012_neogeo_libretro.so": 107,
+        "fbalpha2012_cps1_libretro.so": 9,
+        "mame2000_libretro.so": 5,
+        "fbalpha2012_cps2_libretro.so": 4
+      },
+      "non_passing_breakdown": {
+        "qemu_mipsel_sigbus_unaligned_count": 335,
+        "qemu_mipsel_sigbus_note": "MIPS SIGBUS (signal 10) in user-mode qemu-mipsel because qemu-mipsel lacks Linux MIPS kernel do_ade unaligned access emulation; real R36S Linux 7.2 emulates unaligned loads/stores in kernel",
+        "proprietary_fba_format_count": 55,
+        "proprietary_fba_note": "Stock legacy FBA3100 .fba archives (not standard libretro .zip romsets)",
+        "unresolved_zip_count": 239,
+        "unresolved_zip_note": "MAME .zip files returning fbneo 640x480 error screen and load_false on mame2003_plus/mame2000/fbalpha2012 (e.g. missing parent/BIOS or incompatible romset version)",
+        "qemu_mipsel_sigbus_sample": [
+          "1941.zip",
+          "1941u.zip",
+          "19xxd.zip",
+          "3wondersb.zip",
+          "3wondersh.zip",
+          "3wondersr1.zip",
+          "64streetj.zip",
+          "64streetja.zip",
+          "aceattaca.zip",
+          "agalleth.zip",
+          "agalletj.zip",
+          "agalletk.zip",
+          "agallett.zip",
+          "agalletu.zip",
+          "agress.zip",
+          "agressb.zip",
+          "altbeast2.zip",
+          "altbeast4.zip",
+          "altbeast5.zip",
+          "altbeast5d.zip",
+          "altbeastj3d.zip",
+          "area88r.zip",
+          "ashura.zip",
+          "ashuraj.zip",
+          "aurail1d.zip",
+          "aurailjd.zip",
+          "batrider.zip",
+          "batriderc.zip",
+          "batriderhk.zip",
+          "batriderj.zip"
+        ],
+        "proprietary_fba_files": [
+          "1944.fba",
+          "aof2.fba",
+          "aof3.fba",
+          "bangbead.fba",
+          "batcir.fba",
+          "blazstar.fba",
+          "cybots.fba",
+          "dimahoo.fba",
+          "dstlk.fba",
+          "fatfursp.fba",
+          "galaxyfg.fba",
+          "ganryu.fba",
+          "garou.fba",
+          "ket.fba",
+          "kf2k2plb.fba",
+          "kizuna.fba",
+          "kof2000.fba",
+          "kof2001.fba",
+          "kof2002.fba",
+          "kof2003.fba",
+          "kof94.fba",
+          "kof95.fba",
+          "kof96.fba",
+          "kof97.fba",
+          "kof98.fba",
+          "kof99.fba",
+          "kov.fba",
+          "matrim.fba",
+          "mmatrix.fba",
+          "mslug.fba",
+          "mslug2.fba",
+          "mslug3.fba",
+          "mslug4.fba",
+          "mslug5.fba",
+          "mslugx.fba",
+          "ninjamas.fba",
+          "nitd.fba",
+          "nwarr.fba",
+          "oldsplus.fba",
+          "orlegend.fba",
+          "overtop.fba",
+          "progear.fba",
+          "pulstar.fba",
+          "rbff1.fba",
+          "ringdest.fba",
+          "samsho2.fba",
+          "samsho4.fba",
+          "sfz2al.fba",
+          "shocktro.fba",
+          "stakwin2.fba",
+          "svc.fba",
+          "vhunt2.fba",
+          "vsav.fba",
+          "vsav2.fba",
+          "wh2j.fba"
+        ],
+        "unresolved_zip_files": [
+          "1944ad.zip",
+          "1944d.zip",
+          "1944j.zip",
+          "19xx.zip",
+          "actfancr1.zip",
+          "actfancrj.zip",
+          "aeroboto.zip",
+          "airduelm72.zip",
+          "aliensu.zip",
+          "aliensyn2.zip",
+          "aliensyn3.zip",
+          "aliensyn5.zip",
+          "aliensynj.zip",
+          "aliensynjo.zip",
+          "aligatorun.zip",
+          "altbeast6.zip",
+          "altbeastj.zip",
+          "asukaj.zip",
+          "aurail1.zip",
+          "aurailj.zip",
+          "avengers2.zip",
+          "avspa.zip",
+          "baryon.zip",
+          "bayroute1.zip",
+          "bgareggaz.zip",
+          "billiard.zip",
+          "blkheartj.zip",
+          "buraiken.zip",
+          "candance.zip",
+          "catacomb.zip",
+          "chopliftu.zip",
+          "cobracoma.zip",
+          "cobracomb.zip",
+          "cobracomj.zip",
+          "cobracomjb.zip",
+          "countrunb.zip",
+          "csilver.zip",
+          "csilverj.zip",
+          "csilverja.zip",
+          "ctribe1.zip",
+          "ctribeo.zip",
+          "cybotsj.zip",
+          "cybotsjd.zip",
+          "cybotsu.zip",
+          "cybotsud.zip",
+          "dacholer.zip",
+          "dairesya.zip",
+          "ddragon2b.zip",
+          "ddragonb2.zip",
+          "ddragonba.zip",
+          "ddragonw1.zip",
+          "ddux1.zip",
+          "dfeveron.zip",
+          "dimahoou.zip",
+          "dimahoud.zip",
+          "djboya.zip",
+          "dkong3j.zip",
+          "dquizgo.zip",
+          "drgninja.zip",
+          "drgninjab2.zip",
+          "drgw2c.zip",
+          "drgw2j.zip",
+          "dstlka.zip",
+          "dstlkh.zip",
+          "dstlku.zip",
+          "dstlku1d.zip",
+          "dw2v100x.zip",
+          "eeekk.zip",
+          "exctleagd.zip",
+          "eyesb.zip",
+          "fitegolf2.zip",
+          "fnshark.zip",
+          "forgottnu.zip",
+          "fxa.zip",
+          "gallop.zip",
+          "getstarb1.zip",
+          "ghostb.zip",
+          "ghostb2a.zip",
+          "gigawinga.zip",
+          "gijoeu.zip",
+          "gmahou.zip",
+          "gngbla.zip",
+          "gngc.zip",
+          "gtmr2u.zip",
+          "gunsmokeua.zip",
+          "gunsmokeub.zip",
+          "hachamfb.zip",
+          "hishouza.zip",
+          "hsf2.zip",
+          "hustlerb.zip",
+          "hvyunitj.zip",
+          "igmo.zip",
+          "ikari3k.zip",
+          "imgfight.zip",
+          "jackalr.zip",
+          "jchan.zip",
+          "jigkmgria.zip",
+          "jt104.zip",
+          "kagekih.zip",
+          "kagekij.zip",
+          "karnov.zip",
+          "karnova.zip",
+          "keta.zip",
+          "ketarr15.zip",
+          "ketarr151.zip",
+          "ketb.zip",
+          "knockout.zip",
+          "kof97pls.zip",
+          "konami88.zip",
+          "lastmisnj.zip",
+          "lastmisno.zip",
+          "lkageo.zip",
+          "lkageoo.zip",
+          "macross2k.zip",
+          "majest12u.zip",
+          "martmastc.zip",
+          "marvlandj.zip",
+          "mchampdxa.zip",
+          "megamana.zip",
+          "meikyuha.zip",
+          "mmatrixd.zip",
+          "mmatrixj.zip",
+          "mooncrstu.zip",
+          "multi96.zip",
+          "mustachei.zip",
+          "mvsca.zip",
+          "nextfase.zip",
+          "nitdbl.zip",
+          "nmaster.zip",
+          "nobb.zip",
+          "nwarra.zip",
+          "nwarrb.zip",
+          "nwarrh.zip",
+          "nwarru.zip",
+          "nwarrud.zip",
+          "nyanpani.zip",
+          "oedfight.zip",
+          "offensiv.zip",
+          "olds100.zip",
+          "orlegend105k.zip",
+          "orlegend111c.zip",
+          "orlegendc.zip",
+          "orlegende.zip",
+          "outzonea.zip",
+          "outzoneb.zip",
+          "outzonec.zip",
+          "outzoneh.zip",
+          "packbang.zip",
+          "passshtd.zip",
+          "passshtj.zip",
+          "pengo3u.zip",
+          "pengo4.zip",
+          "pengo5.zip",
+          "pengob.zip",
+          "pgear.zip",
+          "pgearr1.zip",
+          "phantasm.zip",
+          "prehislek.zip",
+          "progeara.zip",
+          "progearj.zip",
+          "progearjd.zip",
+          "progearud.zip",
+          "quarteta.zip",
+          "raphero.zip",
+          "rbff1a.zip",
+          "rbislande.zip",
+          "rezont.zip",
+          "ringdesta.zip",
+          "rockmanj.zip",
+          "rolcrusha.zip",
+          "route16.zip",
+          "rpatrol.zip",
+          "ryukendn.zip",
+          "ryukyud.zip",
+          "samsh5sph.zip",
+          "samsh5spho.zip",
+          "samsho2k.zip",
+          "samsho4k.zip",
+          "saurob.zip",
+          "sbsgomo.zip",
+          "scobrae.zip",
+          "sdi.zip",
+          "sdia.zip",
+          "sf2amf7.zip",
+          "sf2ceuab5.zip",
+          "sf2ceuab6.zip",
+          "sfz2alb.zip",
+          "sfz2alh.zip",
+          "sfz2alj.zip",
+          "shinobi5.zip",
+          "sidepcktj.zip",
+          "smbomb.zip",
+          "smbombr1.zip",
+          "spcdraga.zip",
+          "spf2ta.zip",
+          "spf2td.zip",
+          "spf2th.zip",
+          "spf2xj.zip",
+          "spf2xjd.zip",
+          "tigeroadb.zip",
+          "tigeroadb2.zip",
+          "timescan1.zip",
+          "tmntua.zip",
+          "tokiob.zip",
+          "touchgok.zip",
+          "tsamurai2.zip",
+          "tumbleb2.zip",
+          "vampj.zip",
+          "vampja.zip",
+          "vampjr1.zip",
+          "vandykejal.zip",
+          "vandykejal2.zip",
+          "vhunt2d.zip",
+          "vhunt2r1.zip",
+          "vhuntj.zip",
+          "vhuntjr1.zip",
+          "vhuntjr1s.zip",
+          "vhuntjr2.zip",
+          "vigilantbl.zip",
+          "vpool.zip",
+          "vsav2d.zip",
+          "vsava.zip",
+          "vsavd.zip",
+          "vsavh.zip",
+          "vsavj.zip",
+          "vsavu.zip",
+          "wb35.zip",
+          "whizz.zip",
+          "wof3js.zip",
+          "wof3jsa.zip",
+          "wof3sj.zip",
+          "wof3sja.zip",
+          "wofb.zip",
+          "wofh.zip",
+          "wofha.zip",
+          "wolffang.zip",
+          "wwfsstarb.zip",
+          "wwfwfestb.zip",
+          "wyvernf0.zip"
+        ]
+      }
+    }
+  }
+}
